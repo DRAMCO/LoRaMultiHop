@@ -1,0 +1,237 @@
+#include <Adafruit_SleepyDog.h>
+#include "LoRaMultiHop.h"
+
+#define MSG_NODE_UID_OFFSET     0
+#define MSG_MESG_UID_OFFSET     2
+#define MSG_HOPS_OFFSET         4
+#define MSG_PAYLOAD_LEN_OFFSET  5
+#define MSG_PAYLOAD_OFFSET      6
+#define MSG_INFO_FIELD_LEN      MSG_PAYLOAD_OFFSET
+
+// Singleton instance of the radio driver
+RH_RF95 rf95(PIN_MODEM_SS, PIN_MODEM_INT);
+
+MsgReceivedCb mrc = NULL;
+
+LoRaMultiHop::LoRaMultiHop(void){
+
+}
+
+bool LoRaMultiHop::begin(){
+    Serial.print(F("Generating random uid: "));
+    unsigned long av = analogRead(A1);
+    randomSeed(av*av);
+    this->uid = (uint16_t) random();
+    Serial.println(uid, HEX);
+
+    Serial.print(F("Initializing flood buffer... "));
+    this->floodBuffer.init(8);
+    // prefill buffer (otherwise "CircBuffer::find()"" fails miserably and I've yet to fix it)
+    MsgInfo_t dummy;
+    for(uint8_t i=0; i<8; i++){
+        this->floodBuffer.put(dummy);
+    }
+    Serial.println(F("done."));
+
+    Serial.print(F("Enabling 3V3 regulator... "));
+    // Dramco uno - enable 3v3 voltage regulator
+    pinMode(PIN_ENABLE_3V3, OUTPUT);
+    digitalWrite(PIN_ENABLE_3V3, HIGH);
+    Serial.println(F("done."));
+
+    Serial.print(F("Initializing modem... "));
+    if(!rf95.init()){
+        Serial.println(F("failed."));
+        return false;
+    }
+
+    this->reconfigModem();
+
+    return true;
+}
+
+void LoRaMultiHop::loop(void){
+    Serial.flush();
+    rf95.sleep();
+
+#ifndef TOGGLE_TIME
+    Watchdog.sleep(100);
+#else
+    delay(90);
+#endif
+
+
+    rf95.setModeCad(); // listen for channel activity
+#ifndef TOGGLE_TIME
+    Watchdog.sleep(10); // cad done will wake us again
+#else
+    while(!rf95.cadDone());
+#endif
+
+    // if channel activity has been detected during the previous CAD - enable RX and receive message
+    if(rf95.cadDetected()){
+        //LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF); 
+        rf95.setModeRx();
+        rf95.waitAvailableTimeout(1000);
+
+        uint8_t len = RH_RF95_MAX_MESSAGE_LEN;
+        if(rf95.recv(this->rxBuf, &len)){
+            Serial.println(F("Message received."));
+            if(this->forwardMessage(this->rxBuf, len)){
+                if(mrc != NULL){
+                    mrc(this->rxBuf+MSG_PAYLOAD_OFFSET, this->rxBuf[MSG_PAYLOAD_LEN_OFFSET]);
+                }
+            }
+        }
+        else{
+            Serial.println(F("Message receive failed"));
+        }
+    }
+    else{
+        rf95.sleep();
+    }
+
+    // handle any pending tx
+    if(txPending){
+        if(txTime > millis()){
+            this->txMessage(txLen);
+        }
+    }
+}
+
+void LoRaMultiHop::setMsgReceivedCb(MsgReceivedCb cb){
+    mrc = cb;
+}
+
+bool LoRaMultiHop::sendMessage(String str){
+    uint8_t pLen = str.length();
+    if(pLen > RH_RF95_MAX_MESSAGE_LEN - MSG_INFO_FIELD_LEN){
+        Serial.println("Payload is too long.");
+        return false;
+    }
+
+    // copy info to tx buffer and update flood buffer
+    this->initMsgInfo(pLen);
+    
+    // copy payload to tx Buffer
+    uint8_t * pPtr = (this->txBuf + MSG_PAYLOAD_OFFSET);
+    for(uint8_t i=0; i<pLen; i++){
+        *pPtr++ = (uint8_t)str.charAt(i);
+    }
+
+    // transmit
+    txMessage(pLen + MSG_INFO_FIELD_LEN);
+
+    return true;
+}
+
+bool LoRaMultiHop::sendMessage(uint8_t * buf, uint8_t len){
+    if(len > RH_RF95_MAX_MESSAGE_LEN - MSG_INFO_FIELD_LEN){
+        Serial.println("Payload is too long.");
+        return false;
+    }
+
+    // copy info to tx buffer and update flood buffer
+    this->initMsgInfo(len);
+    
+    // copy payload to tx Buffer
+    uint8_t * pPtr = (this->txBuf + MSG_PAYLOAD_OFFSET);
+    memcpy(pPtr, buf, len);
+
+    // transmit
+    txMessage(len + MSG_INFO_FIELD_LEN);
+
+    return true;
+}
+
+void LoRaMultiHop::initMsgInfo(MsgInfo_t info, uint8_t pLen){
+    // add message info to flood buffer
+    floodBuffer.put(info);
+
+    // fill tx buffer with info
+    this->txBuf[MSG_NODE_UID_OFFSET] = (uint8_t)(info.nodeUid >> 8);
+    this->txBuf[MSG_NODE_UID_OFFSET+1] = (uint8_t)(info.nodeUid & 0x00FF);
+    this->txBuf[MSG_MESG_UID_OFFSET] = (uint8_t)(info.msgUid >> 8);
+    this->txBuf[MSG_MESG_UID_OFFSET+1] = (uint8_t)(info.msgUid & 0x00FF);
+
+    // set hop count to 0
+    this->txBuf[MSG_HOPS_OFFSET] = 0;
+    this->txBuf[MSG_PAYLOAD_LEN_OFFSET] = pLen;
+}
+
+void LoRaMultiHop::initMsgInfo(uint8_t pLen){
+    MsgInfo_t mInfo;
+    mInfo.nodeUid = this->uid;
+    mInfo.msgUid = (uint16_t) random();
+
+    // add message info to flood buffer
+    floodBuffer.put(mInfo);
+
+    // fill tx buffer with info
+    this->txBuf[MSG_NODE_UID_OFFSET] = (uint8_t)(mInfo.nodeUid >> 8);
+    this->txBuf[MSG_NODE_UID_OFFSET+1] = (uint8_t)(mInfo.nodeUid & 0x00FF);
+    this->txBuf[MSG_MESG_UID_OFFSET] = (uint8_t)(mInfo.msgUid >> 8);
+    this->txBuf[MSG_MESG_UID_OFFSET+1] = (uint8_t)(mInfo.msgUid & 0x00FF);
+
+    // set hop count to 0
+    this->txBuf[MSG_HOPS_OFFSET] = 0;
+    this->txBuf[MSG_PAYLOAD_LEN_OFFSET] = pLen;
+}
+
+bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
+    MsgInfo_t mInfo;
+    mInfo.nodeUid = (uint16_t)(buf[0]<<8 | buf[1]);
+    mInfo.msgUid = (uint16_t)(buf[2]<<8 | buf[3]);
+
+    if(this->floodBuffer.find(mInfo) == CB_SUCCESS){
+        Serial.println(F("Duplicate. Message not forwarded."));
+        return false;
+    }
+    else{
+        Serial.println(F("Message will be forwarded."));
+    }
+
+    this->initMsgInfo(mInfo, buf[MSG_PAYLOAD_LEN_OFFSET]);
+    this->txBuf[MSG_HOPS_OFFSET] = buf[MSG_HOPS_OFFSET] + 1;
+
+    // copy payload to tx Buffer
+    uint8_t * pPtr = (this->txBuf + MSG_PAYLOAD_OFFSET);
+    memcpy(pPtr, buf+MSG_PAYLOAD_OFFSET, buf[MSG_PAYLOAD_LEN_OFFSET]);
+
+    // schedule tx
+    uint16_t backoff = (uint16_t)(random() % 1000);
+    this->txTime = millis() + backoff;
+    this->txPending = true;
+    this->txLen = len;
+
+    return true;
+}
+
+void LoRaMultiHop::txMessage(uint8_t len){
+    Serial.print("TX MSG: ");
+    for(uint8_t i=0; i<len; i++){
+        if(this->txBuf[i] < 16){
+            Serial.print("0");
+        }
+        Serial.print(this->txBuf[i], HEX);
+        Serial.print(" ");
+    }
+
+    rf95.send(this->txBuf, len);
+    rf95.waitPacketSent();
+    Serial.println("| OK");
+    this->txPending = false;
+}
+
+void LoRaMultiHop::reconfigModem(void){
+    // Defaults after init are 434.0MHz, 13dBm, Bw = 125 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on
+    rf95.setFrequency(868);
+
+    ///< Bw = 500 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on. Fast+short range
+    rf95.setModemConfig(RH_RF95::Bw500Cr45Sf128);
+    rf95.setPreambleLength(390); // 100 ms cycle for wakeup
+    //From my understanding of the datasheet, preamble length in symbols = cycletime * BW / 2^SF. So, for 1 second cycle at 500 kHz and SF7, preamble = 1 * 500000 / 128 = 3906 symbols.
+
+    // lowest transmission power possible
+    rf95.setTxPower(5, false);
+}
