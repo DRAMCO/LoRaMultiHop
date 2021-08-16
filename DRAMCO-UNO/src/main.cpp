@@ -8,45 +8,49 @@
 #include <Arduino.h>
 #include "LoRaMultiHop.h"
 
+#include "Dramco-UNO-Sensors.h"
+
 #define PIN_BUTTON        10
 #define PIN_LED           4
+
+#define DRAMCO_UNO_LPP_DIGITAL_INPUT_MULT          1
+#define DRAMCO_UNO_LPP_ANALOG_INPUT_MULT           100
+#define DRAMCO_UNO_LPP_GENERIC_SENSOR_MULT         1
+#define DRAMCO_UNO_LPP_LUMINOSITY_MULT             1
+#define DRAMCO_UNO_LPP_TEMPERATURE_MULT            10
+#define DRAMCO_UNO_LPP_ACCELEROMETER_MULT          1000
+#define DRAMCO_UNO_LPP_PERCENTAGE_MULT         	   1
+
+#define TOGGLE_TIME 30000
 
 bool newMsg = false;
 uint8_t payloadBuf[RH_RF95_MAX_MESSAGE_LEN];
 uint8_t payloadLen = 0;
 
-bool prevButtonState = true;
-bool btnPressed = false;
-
 unsigned long prevTT = 0;
 
 LoRaMultiHop multihop;
-
-ISR (PCINT0_vect){ //  pin change interrupt for D8 to D13
-  PCIFR  |= bit (digitalPinToPCICRbit(PIN_BUTTON)); // clear any outstanding interrupt
-
-  bool currentState = (bool)digitalRead(PIN_BUTTON);
-  if(!btnPressed && prevButtonState){
-    if(!currentState){
-      btnPressed = true;
-    }
-  }
-  prevButtonState = currentState;
-}
-
+LIS2DW12 accelerometer;
 
 // callback function for when a new message is received
 void msgReceived(uint8_t * payload, uint8_t plen){
+  #ifdef DEBUG
+  Serial.begin(115200);
   Serial.print("Payload: ");
+  #endif
   for(uint8_t i=0; i<plen; i++){
+    #ifdef DEBUG
     if(payload[i] < 16){
         Serial.print("0");
     }
     Serial.print(payload[i], HEX);
     Serial.print(" ");
+    #endif
     payloadBuf[i] = payload[i];
   }
+  #ifdef DEBUG
   Serial.println();
+  #endif
 
   payloadLen = plen;
   newMsg = true;
@@ -55,25 +59,14 @@ void msgReceived(uint8_t * payload, uint8_t plen){
 
 void setup(){
   // Start serial connection for printing debug information
+  #ifdef DEBUG
   Serial.begin(115200);
-
-  // don't wait for serial connection to be established, but give the developer some time to hook up the console
-  delay(5000);
   Serial.println(F("LoRa PTP multihop demo."));
+  #endif
 
-  Serial.print(F("Initializing I/O..."));
-  // button pin
-  pinMode(PIN_BUTTON, INPUT_PULLUP);
-  *digitalPinToPCMSK(PIN_BUTTON) |= bit (digitalPinToPCMSKbit(PIN_BUTTON));  // enable pin
-  PCIFR  |= bit (digitalPinToPCICRbit(PIN_BUTTON)); // clear any outstanding interrupt
-  PCICR  |= bit (digitalPinToPCICRbit(PIN_BUTTON)); // enable interrupt for the group
-
-  // led
-  pinMode(PIN_LED, OUTPUT);
-  digitalWrite(PIN_LED, LOW);
-  Serial.println(F(" done."));
-
+  #ifdef DEBUG
   Serial.println(F("Starting lora multihop..."));
+  #endif
   if(!multihop.begin()){
     while(true){
       digitalWrite(PIN_LED, !digitalRead(PIN_LED));
@@ -81,41 +74,82 @@ void setup(){
     }
   }
   multihop.setMsgReceivedCb(&msgReceived);
+  #ifdef DEBUG
   Serial.println(F("done."));
+  #endif
 
+  #ifdef DEBUG
+  Serial.println(F("Starting Dramco Uno firmware..."));
+  #endif
+  DramcoUno.begin();
+  DramcoUno.interruptOnButtonPress();
+  #ifdef DEBUG
   Serial.println(F("Setup complete."));
   Serial.println(F("Press the button to send a message."));
+  #endif
+  
+  
 }
 
 void loop(){
   bool autoToggle = false;
 #ifdef TOGGLE_TIME
-  if((millis() - prevTT) > TOGGLE_TIME){
-    prevTT = millis();
+  if((DramcoUno.millisWithOffset() - prevTT) > TOGGLE_TIME){
+    prevTT = DramcoUno.millisWithOffset();
     autoToggle = true;
   }
 #endif
 
   // button press initiates a "send message"
-  if(btnPressed || autoToggle){
-    uint8_t lv = !digitalRead(PIN_LED);
-    digitalWrite(PIN_LED, lv);
-    Serial.print(F("Broadcasting new LED value: "));
-    Serial.println(lv);
+  if(autoToggle || DramcoUno.processInterrupt()){
+    #ifdef DEBUG
+    Serial.begin(115200);
+    Serial.println(F("Composing message"));
+    #endif
 
-    //multihop.sendMessage(&lv, 1);
-    String test = "testtest";
-    multihop.sendMessage(test);
+    uint8_t data[30];
+    uint8_t i = 0; 
+    
+    /*uint16_t vx = DramcoUno.readAccelerationXInt();
+    
+    uint16_t vy = DramcoUno.readAccelerationYInt();
+    uint16_t vz = DramcoUno.readAccelerationZInt();
+    uint16_t vt = DramcoUno.readTemperatureAccelerometerInt();
+    uint8_t vl = DramcoUno.readLuminosity();
+    */
+   uint16_t vx = 1;
+    
+    uint16_t vy = 2;
+    uint16_t vz = 3;
+    uint16_t vt = 4;
+    uint8_t vl = 5;
+    data[i++] = vx >> 8;
+    data[i++] = vx;
+    data[i++] = vy >> 8;
+    data[i++] = vy;
+    data[i++] = vz >> 8;
+    data[i++] = vz;
+    data[i++] = vt >> 8;
+    data[i++] = vt;
+    data[i++] = vl;
 
-    btnPressed = false;
+    DramcoUno.blink();
+
+    #ifdef DEBUG
+    Serial.println(F("Broadcasting packet now"));
+    #endif
+
+    multihop.sendMessage(data, i);
+
+    DramcoUno.interruptOnButtonPress();
   }
-
   multihop.loop();
 
   if(newMsg){
-    digitalWrite(PIN_LED, payloadBuf[0]);
+    digitalWrite(PIN_LED, !digitalRead(PIN_LED));
     newMsg = false;
   }
+  digitalWrite(DRAMCO_UNO_LED_NAME, LOW);
 }
 
 

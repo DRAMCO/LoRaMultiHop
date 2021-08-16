@@ -11,6 +11,8 @@
 #define PIN_MODEM_SS      6
 #define PIN_MODEM_INT     2
 
+#define DEBUG
+
 typedef struct msg{
   MsgInfo_t info;
   uint8_t hops;
@@ -25,6 +27,7 @@ class LoRaMultiHop{
         LoRaMultiHop();
         bool begin();
         void loop();
+
         bool sendMessage(String str);
         bool sendMessage(uint8_t * buf, uint8_t len);
         void setMsgReceivedCb(MsgReceivedCb cb);
@@ -35,6 +38,7 @@ class LoRaMultiHop{
         void initMsgInfo(uint8_t pLen); // auto generate msg uid
         void txMessage(uint8_t len);
 
+        bool waitCADDone(uint16_t timeout);
         bool forwardMessage(uint8_t * buf, uint8_t len); // make private ? ( and forward automatically)
 
         bool txPending;
