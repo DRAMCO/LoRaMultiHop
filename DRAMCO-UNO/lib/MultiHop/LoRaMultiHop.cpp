@@ -18,14 +18,7 @@ LoRaMultiHop::LoRaMultiHop(void){
 }
 
 bool LoRaMultiHop::begin(){
-    #ifdef DEBUG
-    Serial.print(F("Generating random uid: "));
-    #endif
-    //unsigned long av = analogRead(A1);
-    //randomSeed(av*av);
-    //this->uid = (uint16_t) random();
-    this->uid = 0;
-    Serial.println(uid, HEX);
+    
 
     #ifdef DEBUG
     Serial.print(F("Initializing flood buffer... "));
@@ -58,6 +51,13 @@ bool LoRaMultiHop::begin(){
     }
 
     this->reconfigModem();
+    Serial.println(F("done"));
+
+    #ifdef DEBUG
+    Serial.print(F("Generating random uid: "));
+    #endif
+    this->uid = (uint16_t) rf95.random();
+    Serial.println(uid, HEX);
 
     return true;
 }
@@ -66,25 +66,25 @@ void LoRaMultiHop::loop(void){
     rf95.sleep();
 
     #ifdef DEBUG
-    //Serial.end();
+    Serial.flush();
+    Serial.end();
     #endif
 
     DramcoUno.sleep(90, false); // By passing false, 3V3 regulator will be off when in sleep
-    delay(100);
-    rf95.init();
+    rf95.init(false);
     this->reconfigModem();
+
     #ifdef DEBUG
     Serial.begin(115200);
     #endif
-    digitalWrite(DRAMCO_UNO_LED_NAME, HIGH);
+
     rf95.setModeCad(); // listen for channel activity
+    digitalWrite(DRAMCO_UNO_LED_NAME, HIGH);
     
-  waitCADDone(40);
+    this->waitCADDone(100);
        
     // if channel activity has been detected during the previous CAD - enable RX and receive message
     if(rf95.cadDetected()){
-        
-        //LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF); 
         rf95.setModeRx();
         rf95.waitAvailableTimeout(1000);
         uint8_t len = RH_RF95_MAX_MESSAGE_LEN;
@@ -108,6 +108,7 @@ void LoRaMultiHop::loop(void){
         rf95.sleep();
     }
 
+    rf95.sleep();
     
     // handle any pending tx
     if(txPending){
@@ -261,7 +262,7 @@ void LoRaMultiHop::txMessage(uint8_t len){
     #endif
 
     rf95.send(this->txBuf, len);
-    rf95.waitPacketSent();
+    rf95.waitPacketSent(1000);
     #ifdef DEBUG
     Serial.println("| OK");
     #endif

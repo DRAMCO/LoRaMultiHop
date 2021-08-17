@@ -1,9 +1,5 @@
-// Example sketch showing how to create a simple messageing client
-// with the RH_RF95 class. RH_RF95 class does not provide for addressing or
-// reliability, so you should only use RH_RF95 if you do not need the higher
-// level messaging abilities.
-// It is designed to work with the other example rf95_server
-// Tested with Anarduino MiniWirelessLoRa, Rocket Scream Mini Ultra Pro with the RFM95W 
+// Example for flooding mesh network using CAD
+// Extra low power: disable 3v3 regulator on Dramco Uno => EXTRA CAPS NEEDED ON VCC RF95 (100nF // 10nF)
 
 #include <Arduino.h>
 #include "LoRaMultiHop.h"
@@ -35,7 +31,7 @@ LIS2DW12 accelerometer;
 // callback function for when a new message is received
 void msgReceived(uint8_t * payload, uint8_t plen){
   #ifdef DEBUG
-  Serial.begin(115200);
+  //Serial.begin(115200);
   Serial.print("Payload: ");
   #endif
   for(uint8_t i=0; i<plen; i++){
@@ -99,30 +95,24 @@ void loop(){
     autoToggle = true;
   }
 #endif
-
+  multihop.loop();
+  
   // button press initiates a "send message"
   if(autoToggle || DramcoUno.processInterrupt()){
     #ifdef DEBUG
-    Serial.begin(115200);
     Serial.println(F("Composing message"));
     #endif
 
-    uint8_t data[30];
+    uint8_t data[15];
     uint8_t i = 0; 
-    
-    /*uint16_t vx = DramcoUno.readAccelerationXInt();
+  
+    uint16_t vx = DramcoUno.readAccelerationXInt();
     
     uint16_t vy = DramcoUno.readAccelerationYInt();
     uint16_t vz = DramcoUno.readAccelerationZInt();
     uint16_t vt = DramcoUno.readTemperatureAccelerometerInt();
     uint8_t vl = DramcoUno.readLuminosity();
-    */
-   uint16_t vx = 1;
     
-    uint16_t vy = 2;
-    uint16_t vz = 3;
-    uint16_t vt = 4;
-    uint8_t vl = 5;
     data[i++] = vx >> 8;
     data[i++] = vx;
     data[i++] = vy >> 8;
@@ -135,16 +125,11 @@ void loop(){
 
     DramcoUno.blink();
 
-    #ifdef DEBUG
-    Serial.println(F("Broadcasting packet now"));
-    #endif
-
     multihop.sendMessage(data, i);
 
     DramcoUno.interruptOnButtonPress();
   }
-  multihop.loop();
-
+  
   if(newMsg){
     digitalWrite(PIN_LED, !digitalRead(PIN_LED));
     newMsg = false;

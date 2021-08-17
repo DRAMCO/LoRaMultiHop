@@ -284,7 +284,10 @@ unsigned long DramcoUnoClass::_sleep(unsigned long maxWaitTimeMillis) {
         digitalWrite(DRAMCO_UNO_TEMPERATURE_SENSOR_ENABLE_PIN, LOW);
     }
     
-    
+    // Backup ports before sleep
+    uint8_t d_d = DDRD;
+    uint8_t v_d = PORTD;
+
     pinMode(1, OUTPUT);
     digitalWrite(1, LOW);
 
@@ -330,9 +333,11 @@ unsigned long DramcoUnoClass::_sleep(unsigned long maxWaitTimeMillis) {
     wdt_reset();
     wdt_disable();
 
-    #ifdef DEBUG
+    DDRD = d_d;
+    PORTD = v_d;
+
     Serial.begin(DRAMCO_UNO_SERIAL_BAUDRATE);
-    #endif
+    
     digitalWrite(DRAMCO_UNO_ACCELEROMTER_INT_PIN, HIGH);
     digitalWrite(DRAMCO_UNO_3V3_ENABLE_PIN, HIGH);
     _millisOffset += _millisInDeepSleep;
@@ -422,9 +427,9 @@ void error(uint8_t errorcode){
     while(true){
         for(byte i = 0; i < errorcode; i++){
             digitalWrite(DRAMCO_UNO_LED_NAME, HIGH);
-            /*delay(100);
+            delay(100);
             digitalWrite(DRAMCO_UNO_LED_NAME, LOW);
-            delay(100);*/
+            delay(100);
         }
         delay(500);
         i++;

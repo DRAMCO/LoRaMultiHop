@@ -31,20 +31,25 @@ RH_RF95::RH_RF95(uint8_t slaveSelectPin, uint8_t interruptPin, RHGenericSPI& spi
     _interruptPin = interruptPin;
     _myInterruptIndex = 0xff; // Not allocated yet
 }
-
 bool RH_RF95::init()
 {
-    if (!RHSPIDriver::init())
-	return false;
-
-    // Determine the interrupt number that corresponds to the interruptPin
+    return this->init(true);
+}
+bool RH_RF95::init(bool startOver)
+{
     int interruptNumber = digitalPinToInterrupt(_interruptPin);
-    if (interruptNumber == NOT_AN_INTERRUPT)
-	return false;
-#ifdef RH_ATTACHINTERRUPT_TAKES_PIN_NUMBER
-    interruptNumber = _interruptPin;
-#endif
+    if(startOver){
+        if (!RHSPIDriver::init())
+        return false;
 
+        // Determine the interrupt number that corresponds to the interruptPin
+        int interruptNumber = digitalPinToInterrupt(_interruptPin);
+        if (interruptNumber == NOT_AN_INTERRUPT)
+        return false;
+    #ifdef RH_ATTACHINTERRUPT_TAKES_PIN_NUMBER
+        interruptNumber = _interruptPin;
+    #endif
+    }
     // No way to check the device type :-(
     
     // Set sleep mode, so we can also set LORA mode:
@@ -57,35 +62,36 @@ bool RH_RF95::init()
 	return false; // No device present?
     }
 
-    // Add by Adrien van den Bossche <vandenbo@univ-tlse2.fr> for Teensy
-    // ARM M4 requires the below. else pin interrupt doesn't work properly.
-    // On all other platforms, its innocuous, belt and braces
-    pinMode(_interruptPin, INPUT); 
+    if(startOver){
+        // Add by Adrien van den Bossche <vandenbo@univ-tlse2.fr> for Teensy
+        // ARM M4 requires the below. else pin interrupt doesn't work properly.
+        // On all other platforms, its innocuous, belt and braces
+        pinMode(_interruptPin, INPUT); 
 
-    // Set up interrupt handler
-    // Since there are a limited number of interrupt glue functions isr*() available,
-    // we can only support a limited number of devices simultaneously
-    // ON some devices, notably most Arduinos, the interrupt pin passed in is actuallt the 
-    // interrupt number. You have to figure out the interruptnumber-to-interruptpin mapping
-    // yourself based on knwledge of what Arduino board you are running on.
-    if (_myInterruptIndex == 0xff)
-    {
-	// First run, no interrupt allocated yet
-	if (_interruptCount <= RH_RF95_NUM_INTERRUPTS)
-	    _myInterruptIndex = _interruptCount++;
-	else
-	    return false; // Too many devices, not enough interrupt vectors
+        // Set up interrupt handler
+        // Since there are a limited number of interrupt glue functions isr*() available,
+        // we can only support a limited number of devices simultaneously
+        // ON some devices, notably most Arduinos, the interrupt pin passed in is actuallt the 
+        // interrupt number. You have to figure out the interruptnumber-to-interruptpin mapping
+        // yourself based on knwledge of what Arduino board you are running on.
+        if (_myInterruptIndex == 0xff)
+        {
+        // First run, no interrupt allocated yet
+        if (_interruptCount <= RH_RF95_NUM_INTERRUPTS)
+            _myInterruptIndex = _interruptCount++;
+        else
+            return false; // Too many devices, not enough interrupt vectors
+        }
+        _deviceForInterrupt[_myInterruptIndex] = this;
+        if (_myInterruptIndex == 0)
+        attachInterrupt(interruptNumber, isr0, RISING);
+        else if (_myInterruptIndex == 1)
+        attachInterrupt(interruptNumber, isr1, RISING);
+        else if (_myInterruptIndex == 2)
+        attachInterrupt(interruptNumber, isr2, RISING);
+        else
+        return false; // Too many devices, not enough interrupt vectors
     }
-    _deviceForInterrupt[_myInterruptIndex] = this;
-    if (_myInterruptIndex == 0)
-	attachInterrupt(interruptNumber, isr0, RISING);
-    else if (_myInterruptIndex == 1)
-	attachInterrupt(interruptNumber, isr1, RISING);
-    else if (_myInterruptIndex == 2)
-	attachInterrupt(interruptNumber, isr2, RISING);
-    else
-	return false; // Too many devices, not enough interrupt vectors
-
     // Set up FIFO
     // We configure so that we can use the entire 256 byte FIFO for either receive
     // or transmit, but not both at the same time
@@ -201,6 +207,43 @@ void RH_RF95::validateRxBuf()
 	_rxGood++;
 	_rxBufValid = true;
     }
+}
+
+uint32_t RH_RF95::random()
+{
+    uint32_t rnd = 0;
+    sleep();
+    // 0x7F = RFLR_OPMODE_LONGRANGEMODE_MASK      
+    // 0x00 = RFLR_OPMODE_LONGRANGEMODE_OFF
+    //spiWrite( RH_RF95_REG_01_OP_MODE, ( spiRead( RH_RF95_REG_01_OP_MODE ) & 0x7F ) | 0x00 );
+    spiWrite(RH_RF95_REG_01_OP_MODE, RH_RF95_MODE_SLEEP | RH_RF95_LONG_RANGE_MODE);
+    
+    spiWrite( RH_RF95_REG_40_DIO_MAPPING1, 0x00 );
+    spiWrite( RH_RF95_REG_41_DIO_MAPPING2, 0x00 );
+
+    // Disable LoRa modem interrupts
+    spiWrite( RH_RF95_REG_11_IRQ_FLAGS_MASK, RH_RF95_RX_TIMEOUT |
+                  RH_RF95_RX_DONE |
+                  RH_RF95_PAYLOAD_CRC_ERROR |
+                  RH_RF95_VALID_HEADER |
+                  RH_RF95_TX_DONE |
+                  RH_RF95_CAD_DONE |
+                  RH_RF95_FHSS_CHANGE_CHANNEL |
+                  RH_RF95_CAD_DETECTED );
+
+    // Set radio in continuous reception
+    spiWrite(RH_RF95_REG_01_OP_MODE, RH_RF95_MODE_RXCONTINUOUS);
+
+    for( uint8_t i = 0; i < 32; i++ )
+    {
+        delay( 1 );
+        // Unfiltered RSSI value reading. Only takes the LSB value
+        rnd |= ( ( uint32_t )spiRead( RH_RF95_REG_2C_RSSIWIDEBAND ) & 0x01 ) << i;
+    }
+
+    sleep( );
+
+    return rnd;
 }
 
 bool RH_RF95::available()
