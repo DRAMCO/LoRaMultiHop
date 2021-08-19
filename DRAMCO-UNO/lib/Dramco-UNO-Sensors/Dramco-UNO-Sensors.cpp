@@ -287,9 +287,10 @@ unsigned long DramcoUnoClass::_sleep(unsigned long maxWaitTimeMillis) {
     // Backup ports before sleep
     uint8_t d_d = DDRD;
     uint8_t v_d = PORTD;
-
+    
     pinMode(1, OUTPUT);
     digitalWrite(1, LOW);
+
 
     // Adapted from https://github.com/PRosenb/DeepSleepScheduler/blob/1595995576be62041a1c9db1d51435550ca49c53/DeepSleepScheduler_avr_implementation.h
 
@@ -305,6 +306,7 @@ unsigned long DramcoUnoClass::_sleep(unsigned long maxWaitTimeMillis) {
         sleep_enable(); // enables the sleep bit, a safety pin
         
         _wdtSleepTimeMillis = DramcoUnoClass::_wdtEnableForSleep(maxWaitTimeMillis-_millisInDeepSleep);
+        // _millisInDeepSleep is incremented in in _isrWdt
         DramcoUnoClass::_wdtEnableInterrupt();
 
         noInterrupts();

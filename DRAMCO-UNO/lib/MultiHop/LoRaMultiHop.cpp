@@ -70,7 +70,8 @@ void LoRaMultiHop::loop(void){
     Serial.end();
     #endif
 
-    DramcoUno.sleep(90, false); // By passing false, 3V3 regulator will be off when in sleep
+    DramcoUno.sleep(300, false); // By passing false, 3V3 regulator will be off when in sleep
+    delay(30);
     rf95.init(false);
     this->reconfigModem();
 
@@ -81,7 +82,11 @@ void LoRaMultiHop::loop(void){
     rf95.setModeCad(); // listen for channel activity
     digitalWrite(DRAMCO_UNO_LED_NAME, HIGH);
     
-    this->waitCADDone(100);
+    if(!this->waitCADDone(100)){
+        #ifdef DEBUG
+        Serial.println("CAD failed");
+        #endif
+    };
        
     // if channel activity has been detected during the previous CAD - enable RX and receive message
     if(rf95.cadDetected()){
@@ -276,7 +281,9 @@ void LoRaMultiHop::reconfigModem(void){
     ///< Bw = 500 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on. Fast+short range
     rf95.setModemConfig(RH_RF95::Bw500Cr45Sf128);
     rf95.setPreambleLength(390); // 100 ms cycle for wakeup
-    //From my understanding of the datasheet, preamble length in symbols = cycletime * BW / 2^SF. So, for 1 second cycle at 500 kHz and SF7, preamble = 1 * 500000 / 128 = 3906 symbols.
+    // From my understanding of the datasheet, preamble length in symbols = cycletime * BW / 2^SF. So, 
+    // for 100ms  cycle at 500 kHz and SF7, preamble = 0.100 * 500000 / 128 = 390.6 symbols.
+    // Max value 65535
 
     // lowest transmission power possible
     rf95.setTxPower(5, false);
