@@ -1,12 +1,22 @@
 #include <Adafruit_SleepyDog.h>
 #include "LoRaMultiHop.h"
 
-#define MSG_NODE_UID_OFFSET     0
-#define MSG_MESG_UID_OFFSET     2
-#define MSG_HOPS_OFFSET         4
-#define MSG_PAYLOAD_LEN_OFFSET  5
-#define MSG_PAYLOAD_OFFSET      6
-#define MSG_INFO_FIELD_LEN      MSG_PAYLOAD_OFFSET
+#define GATEWAY_UID                 0x0000
+
+#define NODE_UID_SIZE               sizeof(Node_UID_t)
+#define MESG_UID_SIZE               sizeof(Msg_UID_t)
+#define MESG_TYPE_SIZE              sizeof(Msg_Type_t)
+#define MESG_HOPS_SIZE              1
+#define MESG_PAYLOAD_LEN_SIZE       1
+
+#define HEADER_NODE_UID_OFFSET      0
+#define HEADER_MESG_UID_OFFSET      (HEADER_NODE_UID_OFFSET + NODE_UID_SIZE)
+#define HEADER_HOPS_OFFSET          (HEADER_MESG_UID_OFFSET + MESG_UID_SIZE)
+#define HEADER_TYPE_OFFSET          (HEADER_HOPS_OFFSET + MESG_HOPS_SIZE)
+#define HEADER_NEXT_UID_OFFSET      (HEADER_TYPE_OFFSET + MESG_TYPE_SIZE)
+#define HEADER_PAYLOAD_LEN_OFFSET   (HEADER_NEXT_UID_OFFSET + NODE_UID_SIZE)
+#define HEADER_PAYLOAD_OFFSET       (HEADER_PAYLOAD_LEN_OFFSET + MESG_PAYLOAD_LEN_SIZE)
+#define HEADER_SIZE                 HEADER_PAYLOAD_OFFSET
 
 // Singleton instance of the radio driver
 RH_RF95 rf95(PIN_MODEM_SS, PIN_MODEM_INT);
@@ -79,7 +89,7 @@ void LoRaMultiHop::loop(void){
             Serial.println(F("Message received."));
             if(this->forwardMessage(this->rxBuf, len)){
                 if(mrc != NULL){
-                    mrc(this->rxBuf+MSG_PAYLOAD_OFFSET, this->rxBuf[MSG_PAYLOAD_LEN_OFFSET]);
+                    mrc(this->rxBuf+HEADER_PAYLOAD_OFFSET, this->rxBuf[HEADER_PAYLOAD_LEN_OFFSET]);
                 }
             }
         }
@@ -105,7 +115,7 @@ void LoRaMultiHop::setMsgReceivedCb(MsgReceivedCb cb){
 
 bool LoRaMultiHop::sendMessage(String str){
     uint8_t pLen = str.length();
-    if(pLen > RH_RF95_MAX_MESSAGE_LEN - MSG_INFO_FIELD_LEN){
+    if(pLen > RH_RF95_MAX_MESSAGE_LEN - HEADER_SIZE){
         Serial.println("Payload is too long.");
         return false;
     }
@@ -114,19 +124,19 @@ bool LoRaMultiHop::sendMessage(String str){
     this->initMsgInfo(pLen);
     
     // copy payload to tx Buffer
-    uint8_t * pPtr = (this->txBuf + MSG_PAYLOAD_OFFSET);
+    uint8_t * pPtr = (this->txBuf + HEADER_PAYLOAD_OFFSET);
     for(uint8_t i=0; i<pLen; i++){
         *pPtr++ = (uint8_t)str.charAt(i);
     }
 
     // transmit
-    txMessage(pLen + MSG_INFO_FIELD_LEN);
+    txMessage(pLen + HEADER_SIZE);
 
     return true;
 }
 
 bool LoRaMultiHop::sendMessage(uint8_t * buf, uint8_t len){
-    if(len > RH_RF95_MAX_MESSAGE_LEN - MSG_INFO_FIELD_LEN){
+    if(len > RH_RF95_MAX_MESSAGE_LEN - HEADER_SIZE){
         Serial.println("Payload is too long.");
         return false;
     }
@@ -135,11 +145,11 @@ bool LoRaMultiHop::sendMessage(uint8_t * buf, uint8_t len){
     this->initMsgInfo(len);
     
     // copy payload to tx Buffer
-    uint8_t * pPtr = (this->txBuf + MSG_PAYLOAD_OFFSET);
+    uint8_t * pPtr = (this->txBuf + HEADER_PAYLOAD_OFFSET);
     memcpy(pPtr, buf, len);
 
     // transmit
-    txMessage(len + MSG_INFO_FIELD_LEN);
+    txMessage(len + HEADER_SIZE);
 
     return true;
 }
@@ -149,14 +159,14 @@ void LoRaMultiHop::initMsgInfo(MsgInfo_t info, uint8_t pLen){
     floodBuffer.put(info);
 
     // fill tx buffer with info
-    this->txBuf[MSG_NODE_UID_OFFSET] = (uint8_t)(info.nodeUid >> 8);
-    this->txBuf[MSG_NODE_UID_OFFSET+1] = (uint8_t)(info.nodeUid & 0x00FF);
-    this->txBuf[MSG_MESG_UID_OFFSET] = (uint8_t)(info.msgUid >> 8);
-    this->txBuf[MSG_MESG_UID_OFFSET+1] = (uint8_t)(info.msgUid & 0x00FF);
+    this->txBuf[HEADER_NODE_UID_OFFSET] = (uint8_t)(info.nodeUid >> 8);
+    this->txBuf[HEADER_NODE_UID_OFFSET+1] = (uint8_t)(info.nodeUid & 0x00FF);
+    this->txBuf[HEADER_MESG_UID_OFFSET] = (uint8_t)(info.msgUid >> 8);
+    this->txBuf[HEADER_MESG_UID_OFFSET+1] = (uint8_t)(info.msgUid & 0x00FF);
 
     // set hop count to 0
-    this->txBuf[MSG_HOPS_OFFSET] = 0;
-    this->txBuf[MSG_PAYLOAD_LEN_OFFSET] = pLen;
+    this->txBuf[HEADER_HOPS_OFFSET] = 0;
+    this->txBuf[HEADER_PAYLOAD_LEN_OFFSET] = pLen;
 }
 
 void LoRaMultiHop::initMsgInfo(uint8_t pLen){
@@ -168,14 +178,14 @@ void LoRaMultiHop::initMsgInfo(uint8_t pLen){
     floodBuffer.put(mInfo);
 
     // fill tx buffer with info
-    this->txBuf[MSG_NODE_UID_OFFSET] = (uint8_t)(mInfo.nodeUid >> 8);
-    this->txBuf[MSG_NODE_UID_OFFSET+1] = (uint8_t)(mInfo.nodeUid & 0x00FF);
-    this->txBuf[MSG_MESG_UID_OFFSET] = (uint8_t)(mInfo.msgUid >> 8);
-    this->txBuf[MSG_MESG_UID_OFFSET+1] = (uint8_t)(mInfo.msgUid & 0x00FF);
+    this->txBuf[HEADER_NODE_UID_OFFSET] = (uint8_t)(mInfo.nodeUid >> 8);
+    this->txBuf[HEADER_NODE_UID_OFFSET+1] = (uint8_t)(mInfo.nodeUid & 0x00FF);
+    this->txBuf[HEADER_MESG_UID_OFFSET] = (uint8_t)(mInfo.msgUid >> 8);
+    this->txBuf[HEADER_MESG_UID_OFFSET+1] = (uint8_t)(mInfo.msgUid & 0x00FF);
 
     // set hop count to 0
-    this->txBuf[MSG_HOPS_OFFSET] = 0;
-    this->txBuf[MSG_PAYLOAD_LEN_OFFSET] = pLen;
+    this->txBuf[HEADER_HOPS_OFFSET] = 0;
+    this->txBuf[HEADER_PAYLOAD_LEN_OFFSET] = pLen;
 }
 
 bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
@@ -191,12 +201,12 @@ bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
         Serial.println(F("Message will be forwarded."));
     }
 
-    this->initMsgInfo(mInfo, buf[MSG_PAYLOAD_LEN_OFFSET]);
-    this->txBuf[MSG_HOPS_OFFSET] = buf[MSG_HOPS_OFFSET] + 1;
+    this->initMsgInfo(mInfo, buf[HEADER_PAYLOAD_LEN_OFFSET]);
+    this->txBuf[HEADER_HOPS_OFFSET] = buf[HEADER_HOPS_OFFSET] + 1;
 
     // copy payload to tx Buffer
-    uint8_t * pPtr = (this->txBuf + MSG_PAYLOAD_OFFSET);
-    memcpy(pPtr, buf+MSG_PAYLOAD_OFFSET, buf[MSG_PAYLOAD_LEN_OFFSET]);
+    uint8_t * pPtr = (this->txBuf + HEADER_PAYLOAD_OFFSET);
+    memcpy(pPtr, buf+HEADER_PAYLOAD_OFFSET, buf[HEADER_PAYLOAD_LEN_OFFSET]);
 
     // schedule tx
     uint16_t backoff = (uint16_t)(random() % 1000);

@@ -5,23 +5,21 @@
 #include <RH_RF95.h>
 #include "CircBuffer.h"
 
+
+typedef uint16_t Msg_UID_t;
+typedef uint16_t Node_UID_t;
+typedef uint8_t Msg_Type_t;
+
+typedef void (*MsgReceivedCb)(uint8_t *, uint8_t);
+
 #define MAX_BUF_SIZE 16
 
 #define PIN_ENABLE_3V3    8
 #define PIN_MODEM_SS      6
 #define PIN_MODEM_INT     2
 
-typedef struct msg{
-  MsgInfo_t info;
-  uint8_t hops;
-  uint8_t payloadLength;
-  uint8_t * payload;
-} Msg_t;
-
-typedef void (*MsgReceivedCb)(uint8_t *, uint8_t);
-
 class LoRaMultiHop{
-	public:
+    public:
         LoRaMultiHop();
         bool begin();
         void loop();
@@ -30,12 +28,12 @@ class LoRaMultiHop{
         void setMsgReceivedCb(MsgReceivedCb cb);
         void reconfigModem(void);
 
-	private:
+    private:
         void initMsgInfo(MsgInfo_t info, uint8_t pLen); // use existing info
         void initMsgInfo(uint8_t pLen); // auto generate msg uid
         void txMessage(uint8_t len);
 
-        bool forwardMessage(uint8_t * buf, uint8_t len); // make private ? ( and forward automatically)
+        bool forwardMessage(uint8_t * buf, uint8_t len);
 
         bool txPending;
         unsigned long txTime;
@@ -46,8 +44,6 @@ class LoRaMultiHop{
         uint8_t rxBuf[RH_RF95_MAX_MESSAGE_LEN];
         
         CircBuffer floodBuffer;
-        
-
 };
 
 #endif	/* __LORA_MULTI_HOP__ */
