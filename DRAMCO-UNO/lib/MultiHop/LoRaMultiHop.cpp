@@ -2,6 +2,7 @@
 #include "LoRaMultiHop.h"
 
 #define GATEWAY_UID                 0x0000
+#define BROADCAST_UID               0xFFFF
 
 #define NODE_UID_SIZE               sizeof(Node_UID_t)
 #define MESG_UID_SIZE               sizeof(Msg_UID_t)
@@ -14,7 +15,9 @@
 #define HEADER_HOPS_OFFSET          (HEADER_MESG_UID_OFFSET + MESG_UID_SIZE)
 #define HEADER_TYPE_OFFSET          (HEADER_HOPS_OFFSET + MESG_HOPS_SIZE)
 #define HEADER_NEXT_UID_OFFSET      (HEADER_TYPE_OFFSET + MESG_TYPE_SIZE)
-#define HEADER_PAYLOAD_LEN_OFFSET   (HEADER_NEXT_UID_OFFSET + NODE_UID_SIZE)
+#define HEADER_PREVIOUS_UID_OFFSET  (HEADER_TYPE_OFFSET + MESG_TYPE_SIZE)
+//#define HEADER_PREVIOUS_UID_OFFSET  (HEADER_NEXT_UID_OFFSET + MESG_TYPE_SIZE) // saves 2 bytes
+#define HEADER_PAYLOAD_LEN_OFFSET   (HEADER_PREVIOUS_UID_OFFSET + NODE_UID_SIZE)
 #define HEADER_PAYLOAD_OFFSET       (HEADER_PAYLOAD_LEN_OFFSET + MESG_PAYLOAD_LEN_SIZE)
 #define HEADER_SIZE                 HEADER_PAYLOAD_OFFSET
 
@@ -23,15 +26,21 @@ RH_RF95 rf95(PIN_MODEM_SS, PIN_MODEM_INT);
 
 MsgReceivedCb mrc = NULL;
 
-LoRaMultiHop::LoRaMultiHop(void){
-
+LoRaMultiHop::LoRaMultiHop(NodeType_t nodeType){
+    this->type = nodeType;
 }
 
 bool LoRaMultiHop::begin(){
-    Serial.print(F("Generating random uid: "));
+    Serial.print(F("Setting uid: "));
     unsigned long av = analogRead(A1);
     randomSeed(av*av);
-    this->uid = (uint16_t) random();
+
+    if(this->type == GATEWAY){
+        this->uid = GATEWAY_UID;
+    }
+    else{
+        this->uid = (uint16_t) random();
+    }
     Serial.println(uid, HEX);
 
     Serial.print(F("Initializing flood buffer... "));
@@ -87,7 +96,7 @@ void LoRaMultiHop::loop(void){
         uint8_t len = RH_RF95_MAX_MESSAGE_LEN;
         if(rf95.recv(this->rxBuf, &len)){
             Serial.println(F("Message received."));
-            if(this->forwardMessage(this->rxBuf, len)){
+            if(this->handleMessage(this->rxBuf, len)){
                 if(mrc != NULL){
                     mrc(this->rxBuf+HEADER_PAYLOAD_OFFSET, this->rxBuf[HEADER_PAYLOAD_LEN_OFFSET]);
                 }
@@ -187,6 +196,28 @@ void LoRaMultiHop::initMsgInfo(uint8_t pLen){
     this->txBuf[HEADER_HOPS_OFFSET] = 0;
     this->txBuf[HEADER_PAYLOAD_LEN_OFFSET] = pLen;
 }
+
+bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
+    switch(buf[HEADER_TYPE_OFFSET]){
+        case GATEWAY_BEACON:{
+            Node_UID_t receivedFrom = buf[HEADER_PREVIOUS_UID_OFFSET];
+            uint8_t hops = buf[HEADER_HOPS_OFFSET];
+        } break;
+        
+        case DATA_BROADCAST:{
+            // todo
+        } break;
+
+        case DATA_ROUTED:{
+            // todo
+        } break;
+
+        default:{
+            // todo
+        } break;
+    }
+}
+
 
 bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
     MsgInfo_t mInfo;
