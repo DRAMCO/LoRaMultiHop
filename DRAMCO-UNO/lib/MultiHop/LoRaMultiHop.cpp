@@ -94,7 +94,7 @@ void LoRaMultiHop::loop(void){
 #endif
 
     //delay(95);
-    DramcoUno.sleep(65, true); // By passing false, 3V3 regulator will be off when in sleep
+    DramcoUno.sleep(random(10,65), true); // By passing false, 3V3 regulator will be off when in sleep
     delay(30);
     rf95.init(false);
     this->reconfigModem();
@@ -132,6 +132,7 @@ void LoRaMultiHop::loop(void){
             Serial.println(F("Message receive failed"));
 #endif
         }
+        this->txTime += random(150,300);
     }
     else{
         // handle any pending tx
@@ -341,7 +342,7 @@ bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
     this->updateHeader(buf, len);
 
     // schedule tx
-    uint16_t backoff = 350;
+    uint8_t backoff = (uint8_t) random();
     this->txTime = DramcoUno.millisWithOffset() + backoff;
 #ifdef DEBUG
     Serial.print("Backoff [ms]: ");
@@ -356,6 +357,8 @@ bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
 }
 
 void LoRaMultiHop::txMessage(uint8_t len){
+    rf95.send(this->txBuf, len);
+    rf95.waitPacketSent(1000);
 #ifdef DEBUG
     Serial.print("TX MSG: ");
     for(uint8_t i=0; i<len; i++){
@@ -365,12 +368,6 @@ void LoRaMultiHop::txMessage(uint8_t len){
         Serial.print(this->txBuf[i], HEX);
         Serial.print(" ");
     }
-#endif
-
-    rf95.send(this->txBuf, len);
-    rf95.waitPacketSent(1000);
-#ifdef DEBUG
-    Serial.println("| OK");
 #endif
     this->txPending = false;
 }
