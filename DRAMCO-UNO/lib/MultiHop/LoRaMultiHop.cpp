@@ -79,6 +79,9 @@ return false;
 #ifdef DEBUG
     Serial.println(uid, HEX);
 #endif
+
+    randomSeed(this->uid);
+
     return true;
 }
 
@@ -90,10 +93,11 @@ void LoRaMultiHop::loop(void){
     Serial.end();
 #endif
 
-    DramcoUno.sleep(300, true); // By passing false, 3V3 regulator will be off when in sleep
-    //delay(30);
-    //rf95.init(false);
-    //this->reconfigModem();
+    //delay(95);
+    DramcoUno.sleep(65, true); // By passing false, 3V3 regulator will be off when in sleep
+    delay(30);
+    rf95.init(false);
+    this->reconfigModem();
 
 #ifdef DEBUG
     Serial.begin(115200);
@@ -102,7 +106,7 @@ void LoRaMultiHop::loop(void){
     rf95.setModeCad(); // listen for channel activity
     digitalWrite(DRAMCO_UNO_LED_NAME, HIGH);
 
-    if(!this->waitCADDone(100)){
+    if(!this->waitCADDone(1000)){
 #ifdef DEBUG
         Serial.println("CAD failed");
 #endif
@@ -130,18 +134,17 @@ void LoRaMultiHop::loop(void){
         }
     }
     else{
+        // handle any pending tx
+        if(txPending){
+            if(DramcoUno.millisWithOffset() > this->txTime){
+                Serial.print("T now [ms]: ");
+                Serial.println(DramcoUno.millisWithOffset());
+                this->txMessage(txLen);
+            }
+        }
+
         rf95.sleep();
     }
-
-    rf95.sleep();
-
-    // handle any pending tx
-    if(txPending){
-        if(txTime > DramcoUno.millisWithOffset()){
-            this->txMessage(txLen);
-        }
-    }
-
 }
 
 bool LoRaMultiHop::waitCADDone(uint16_t timeout){
@@ -217,6 +220,18 @@ bool LoRaMultiHop::sendMessage(uint8_t * payload, uint8_t len, MsgType_t type){
         uint8_t * pPtr = (this->txBuf + HEADER_PAYLOAD_OFFSET);
         memcpy(pPtr, payload, len);
     }
+
+#ifdef DEBUG
+    Serial.println("RAW payload:");
+    for(uint8_t i=0; i<len+HEADER_SIZE; i++){
+        Serial.print(" ");
+        if(this->txBuf[i]<16){
+            Serial.print("0");
+        }
+        Serial.print(this->txBuf[i], HEX);
+    }
+    Serial.println();
+#endif
 
     // transmit
     txMessage(len + HEADER_SIZE);
@@ -326,8 +341,14 @@ bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
     this->updateHeader(buf, len);
 
     // schedule tx
-    uint16_t backoff = (uint16_t)(random() % 1000);
+    uint16_t backoff = 350;
     this->txTime = DramcoUno.millisWithOffset() + backoff;
+#ifdef DEBUG
+    Serial.print("Backoff [ms]: ");
+    Serial.println(backoff);
+    Serial.print("TX sched [ms]: ");
+    Serial.println(this->txTime);
+#endif
     this->txPending = true;
     this->txLen = len;
 

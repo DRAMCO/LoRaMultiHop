@@ -6,8 +6,6 @@
 
 #include "Dramco-UNO-Sensors.h"
 
-#define NODE_TYPE GATEWAY
-
 #define PIN_BUTTON        10
 #define PIN_LED           4
 
@@ -19,7 +17,7 @@
 #define DRAMCO_UNO_LPP_ACCELEROMETER_MULT          1000
 #define DRAMCO_UNO_LPP_PERCENTAGE_MULT         	   1
 
-#define TOGGLE_TIME 30000
+#define TOGGLE_TIME 10000
 
 bool newMsg = false;
 uint8_t payloadBuf[RH_RF95_MAX_MESSAGE_LEN];
@@ -27,27 +25,35 @@ uint8_t payloadLen = 0;
 
 unsigned long prevTT = 0;
 
-LoRaMultiHop multihop(NODE_TYPE);
+#ifdef COMPILE_FOR_GATEWAY
+LoRaMultiHop multihop(GATEWAY);
+#else
+#ifdef COMPILE_FOR_SENSOR
+    LoRaMultiHop multihop(SENSOR);
+#else
+  #error "No COMPILE_FOR specified"
+#endif
+#endif
 
 // callback function for when a new message is received
 void msgReceived(uint8_t * payload, uint8_t plen){
-  #ifdef DEBUG
+#ifdef DEBUG
   //Serial.begin(115200);
   Serial.print("Payload: ");
-  #endif
+#endif
   for(uint8_t i=0; i<plen; i++){
-    #ifdef DEBUG
+#ifdef DEBUG
     if(payload[i] < 16){
         Serial.print("0");
     }
     Serial.print(payload[i], HEX);
     Serial.print(" ");
-    #endif
+#endif
     payloadBuf[i] = payload[i];
   }
-  #ifdef DEBUG
+#ifdef DEBUG
   Serial.println();
-  #endif
+#endif
 
   payloadLen = plen;
   newMsg = true;
@@ -89,7 +95,7 @@ void setup(){
 }
 
 void loop(){
-#if defined(NODE_TYPE) && (NODE_TYPE == GATEWAY)
+#ifdef COMPILE_FOR_GATEWAY
   bool autoToggle = false;
 #ifdef TOGGLE_TIME
   if((DramcoUno.millisWithOffset() - prevTT) > TOGGLE_TIME){
@@ -101,14 +107,14 @@ void loop(){
 
   multihop.loop();
 
-#if defined(NODE_TYPE) && (NODE_TYPE == GATEWAY)
+#ifdef COMPILE_FOR_GATEWAY
   // button press initiates a "send message"
   if(autoToggle || DramcoUno.processInterrupt()){
 #ifdef DEBUG
     Serial.println(F("Composing message"));
 #endif
 
-    uint8_t data[15];
+    /*uint8_t data[15];
     uint8_t i = 0;
 
     uint16_t vx = DramcoUno.readAccelerationXInt();
@@ -126,11 +132,11 @@ void loop(){
     data[i++] = vz;
     data[i++] = vt >> 8;
     data[i++] = vt;
-    data[i++] = vl;
+    data[i++] = vl;*/
 
     DramcoUno.blink();
 
-    multihop.sendMessage(data, i, DATA_BROADCAST);
+    multihop.sendMessage("UUUU", GATEWAY_BEACON);
 
     DramcoUno.interruptOnButtonPress();
   }

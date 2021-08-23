@@ -5,6 +5,12 @@
 #include <RH_RF95.h>
 #include "CircBuffer.h"
 
+#define MAX_BUF_SIZE 16
+
+#define PIN_ENABLE_3V3    8
+#define PIN_MODEM_SS      6
+#define PIN_MODEM_INT     2
+
 typedef uint16_t Msg_UID_t;
 typedef uint16_t Node_UID_t;
 typedef uint8_t Msg_Type_t;
@@ -34,21 +40,6 @@ typedef struct routeInfo{
 
 typedef void (*MsgReceivedCb)(uint8_t *, uint8_t);
 
-#define MAX_BUF_SIZE 16
-
-#define PIN_ENABLE_3V3    8
-#define PIN_MODEM_SS      6
-#define PIN_MODEM_INT     2
-
-#define DEBUG
-
-typedef struct msg{
-  MsgInfo_t info;
-  uint8_t hops;
-  uint8_t payloadLength;
-  uint8_t * payload;
-} Msg_t;
-
 typedef void (*MsgReceivedCb)(uint8_t *, uint8_t);
 
 class LoRaMultiHop{
@@ -74,7 +65,7 @@ class LoRaMultiHop{
 
         Node_UID_t getNodeUidFromBuffer(uint8_t * buf, NodeID_t which=SOURCE_NODE);
         Msg_UID_t getMsgUidFromBuffer(uint8_t * buf);
-
+ 
         bool txPending;
         unsigned long txTime;
         uint8_t txLen;
