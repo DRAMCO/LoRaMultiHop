@@ -6,6 +6,8 @@
 
 #include "Dramco-UNO-Sensors.h"
 
+#define NODE_TYPE GATEWAY
+
 #define PIN_BUTTON        10
 #define PIN_LED           4
 
@@ -25,7 +27,7 @@ uint8_t payloadLen = 0;
 
 unsigned long prevTT = 0;
 
-LoRaMultiHop multihop;
+LoRaMultiHop multihop(NODE_TYPE);
 
 // callback function for when a new message is received
 void msgReceived(uint8_t * payload, uint8_t plen){
@@ -54,14 +56,14 @@ void msgReceived(uint8_t * payload, uint8_t plen){
 
 void setup(){
   // Start serial connection for printing debug information
-  #ifdef DEBUG
+#ifdef DEBUG
   Serial.begin(115200);
   Serial.println(F("LoRa PTP multihop demo."));
-  #endif
+#endif
 
-  #ifdef DEBUG
+#ifdef DEBUG
   Serial.println(F("Starting lora multihop..."));
-  #endif
+#endif
   if(!multihop.begin()){
     while(true){
       digitalWrite(PIN_LED, !digitalRead(PIN_LED));
@@ -69,24 +71,25 @@ void setup(){
     }
   }
   multihop.setMsgReceivedCb(&msgReceived);
-  #ifdef DEBUG
+#ifdef DEBUG
   Serial.println(F("done."));
-  #endif
+#endif
 
-  #ifdef DEBUG
+#ifdef DEBUG
   Serial.println(F("Starting Dramco Uno firmware..."));
-  #endif
+#endif
   DramcoUno.begin();
   DramcoUno.interruptOnButtonPress();
-  #ifdef DEBUG
+#ifdef DEBUG
   Serial.println(F("Setup complete."));
   Serial.println(F("Press the button to send a message."));
-  #endif
+#endif
 
 
 }
 
 void loop(){
+#if defined(NODE_TYPE) && (NODE_TYPE == GATEWAY)
   bool autoToggle = false;
 #ifdef TOGGLE_TIME
   if((DramcoUno.millisWithOffset() - prevTT) > TOGGLE_TIME){
@@ -94,13 +97,16 @@ void loop(){
     autoToggle = true;
   }
 #endif
+#endif
+
   multihop.loop();
 
+#if defined(NODE_TYPE) && (NODE_TYPE == GATEWAY)
   // button press initiates a "send message"
   if(autoToggle || DramcoUno.processInterrupt()){
-    #ifdef DEBUG
+#ifdef DEBUG
     Serial.println(F("Composing message"));
-    #endif
+#endif
 
     uint8_t data[15];
     uint8_t i = 0;
@@ -124,11 +130,11 @@ void loop(){
 
     DramcoUno.blink();
 
-    multihop.sendMessage(data, i);
+    multihop.sendMessage(data, i, DATA_BROADCAST);
 
     DramcoUno.interruptOnButtonPress();
   }
-
+#endif
   if(newMsg){
     digitalWrite(PIN_LED, !digitalRead(PIN_LED));
     newMsg = false;

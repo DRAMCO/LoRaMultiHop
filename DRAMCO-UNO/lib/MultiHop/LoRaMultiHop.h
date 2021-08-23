@@ -57,14 +57,14 @@ class LoRaMultiHop{
         bool begin();
         void loop();
 
-        bool sendMessage(String str);
-        bool sendMessage(uint8_t * buf, uint8_t len);
+        bool sendMessage(String str, MsgType_t type);
+        bool sendMessage(uint8_t * payload, uint8_t len, MsgType_t type);
         void setMsgReceivedCb(MsgReceivedCb cb);
         void reconfigModem(void);
 
     private:
-        void initMsgInfo(MsgInfo_t info, uint8_t pLen); // use existing info
-        void initMsgInfo(uint8_t pLen); // auto generate msg uid
+        void updateHeader(uint8_t * buf, uint8_t len);
+        void initHeader(Msg_UID_t uid);
         void txMessage(uint8_t len);
 
         bool waitCADDone(uint16_t timeout);

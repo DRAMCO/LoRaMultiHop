@@ -28,15 +28,12 @@ MsgReceivedCb mrc = NULL;
 
 LoRaMultiHop::LoRaMultiHop(NodeType_t nodeType){
     this->type = nodeType;
-    this->shortestRoute.hopsToGateway=0;
 }
 
 bool LoRaMultiHop::begin(){
-
-
-    #ifdef DEBUG
+#ifdef DEBUG
     Serial.print(F("Initializing flood buffer... "));
-    #endif
+#endif
 
     this->floodBuffer.init(8);
     // prefill buffer (otherwise "CircBuffer::find()"" fails miserably and I've yet to fix it)
@@ -44,62 +41,71 @@ bool LoRaMultiHop::begin(){
     for(uint8_t i=0; i<8; i++){
         this->floodBuffer.put(dummy);
     }
-    #ifdef DEBUG
+#ifdef DEBUG
     Serial.println(F("done."));
     Serial.print(F("Enabling 3V3 regulator... "));
-    #endif// Dramco uno - enable 3v3 voltage regulator
+#endif// Dramco uno - enable 3v3 voltage regulator
 
     pinMode(PIN_ENABLE_3V3, OUTPUT);
     digitalWrite(PIN_ENABLE_3V3, HIGH);
 
-    #ifdef DEBUG
+#ifdef DEBUG
     Serial.println(F("done."));
 
     Serial.print(F("Initializing modem... "));
-    #endif
+#endif
     if(!rf95.init()){
-        #ifdef DEBUG
+#ifdef DEBUG
         Serial.println(F("failed."));
         #endif
-        return false;
+return false;
     }
 
     this->reconfigModem();
+#ifdef DEBUG
     Serial.println(F("done"));
+#endif
 
-    #ifdef DEBUG
-    Serial.print(F("Generating random uid: "));
-    #endif
-    this->uid = (uint16_t) rf95.random();
+#ifdef DEBUG
+    Serial.print(F("Setting node UID: "));
+#endif
+
+    if(this->type == GATEWAY){
+        this->uid = GATEWAY_UID;
+    }
+    else{
+        this->uid = (Node_UID_t) rf95.random();
+    }
+#ifdef DEBUG
     Serial.println(uid, HEX);
-
+#endif
     return true;
 }
 
 void LoRaMultiHop::loop(void){
     rf95.sleep();
 
-    #ifdef DEBUG
+#ifdef DEBUG
     Serial.flush();
     Serial.end();
-    #endif
+#endif
 
-    DramcoUno.sleep(300, false); // By passing false, 3V3 regulator will be off when in sleep
-    delay(30);
-    rf95.init(false);
-    this->reconfigModem();
+    DramcoUno.sleep(300, true); // By passing false, 3V3 regulator will be off when in sleep
+    //delay(30);
+    //rf95.init(false);
+    //this->reconfigModem();
 
-    #ifdef DEBUG
+#ifdef DEBUG
     Serial.begin(115200);
-    #endif
+#endif
 
     rf95.setModeCad(); // listen for channel activity
     digitalWrite(DRAMCO_UNO_LED_NAME, HIGH);
 
     if(!this->waitCADDone(100)){
-        #ifdef DEBUG
+#ifdef DEBUG
         Serial.println("CAD failed");
-        #endif
+#endif
     };
 
     // if channel activity has been detected during the previous CAD - enable RX and receive message
@@ -108,9 +114,9 @@ void LoRaMultiHop::loop(void){
         rf95.waitAvailableTimeout(1000);
         uint8_t len = RH_RF95_MAX_MESSAGE_LEN;
         if(rf95.recv(this->rxBuf, &len)){
-            #ifdef DEBUG
+#ifdef DEBUG
             Serial.println(F("Message received."));
-            #endif
+#endif
             if(this->forwardMessage(this->rxBuf, len)){
                 if(mrc != NULL){
                     mrc(this->rxBuf+HEADER_PAYLOAD_OFFSET, this->rxBuf[HEADER_PAYLOAD_LEN_OFFSET]);
@@ -118,9 +124,9 @@ void LoRaMultiHop::loop(void){
             }
         }
         else{
-            #ifdef DEBUG
+#ifdef DEBUG
             Serial.println(F("Message receive failed"));
-            #endif
+#endif
         }
     }
     else{
@@ -140,11 +146,11 @@ void LoRaMultiHop::loop(void){
 
 bool LoRaMultiHop::waitCADDone(uint16_t timeout){
     unsigned long starttime = millis();
-    while ((millis() - starttime) < timeout)
-    {
-        if (rf95.cadDone()) // Any previous transmit finished?
+    while ((millis() - starttime) < timeout){
+        if (rf95.cadDone()){ // Any previous transmit finished?
            return true;
-	YIELD;
+        }
+	    YIELD;
     }
     return false;
 }
@@ -154,7 +160,7 @@ void LoRaMultiHop::setMsgReceivedCb(MsgReceivedCb cb){
     mrc = cb;
 }
 
-bool LoRaMultiHop::sendMessage(String str){
+bool LoRaMultiHop::sendMessage(String str, MsgType_t type){
     uint8_t pLen = str.length();
     if(pLen > RH_RF95_MAX_MESSAGE_LEN - HEADER_SIZE){
         #ifdef DEBUG
@@ -163,77 +169,81 @@ bool LoRaMultiHop::sendMessage(String str){
         return false;
     }
 
-    // copy info to tx buffer and update flood buffer
-    this->initMsgInfo(pLen);
-
     // copy payload to tx Buffer
     uint8_t * pPtr = (this->txBuf + HEADER_PAYLOAD_OFFSET);
     for(uint8_t i=0; i<pLen; i++){
         *pPtr++ = (uint8_t)str.charAt(i);
     }
 
-    // transmit
-    txMessage(pLen + HEADER_SIZE);
+    this->sendMessage(NULL, pLen, type);
 
     return true;
 }
 
-bool LoRaMultiHop::sendMessage(uint8_t * buf, uint8_t len){
+bool LoRaMultiHop::sendMessage(uint8_t * payload, uint8_t len, MsgType_t type){
     if(len > RH_RF95_MAX_MESSAGE_LEN - HEADER_SIZE){
-        #ifdef DEBUG
+#ifdef DEBUG
         Serial.println("Payload is too long.");
-        #endif
+#endif
         return false;
     }
 
-
-    // copy info to tx buffer and update flood buffer
-    this->initMsgInfo(len);
-
-    // copy payload to tx Buffer
-    uint8_t * pPtr = (this->txBuf + HEADER_PAYLOAD_OFFSET);
-    memcpy(pPtr, buf, len);
-
-    // transmit
-    txMessage(len + HEADER_SIZE);
-
-
-    return true;
-}
-
-void LoRaMultiHop::initMsgInfo(MsgInfo_t info, uint8_t pLen){
-    // add message info to flood buffer
-    floodBuffer.put(info);
-
-    // fill tx buffer with info
-    this->txBuf[HEADER_NODE_UID_OFFSET] = (uint8_t)(info.nodeUid >> 8);
-    this->txBuf[HEADER_NODE_UID_OFFSET+1] = (uint8_t)(info.nodeUid & 0x00FF);
-    this->txBuf[HEADER_MESG_UID_OFFSET] = (uint8_t)(info.msgUid >> 8);
-    this->txBuf[HEADER_MESG_UID_OFFSET+1] = (uint8_t)(info.msgUid & 0x00FF);
-
-    // set hop count to 0
-    this->txBuf[HEADER_HOPS_OFFSET] = 0;
-    this->txBuf[HEADER_PAYLOAD_LEN_OFFSET] = pLen;
-}
-
-void LoRaMultiHop::initMsgInfo(uint8_t pLen){
+    // generate message uid
     MsgInfo_t mInfo;
+    Msg_UID_t mUID = (uint16_t) random();
     mInfo.nodeUid = this->uid;
-    mInfo.msgUid = (uint16_t) random();
+    mInfo.msgUid = mUID;
 
     // add message info to flood buffer
     floodBuffer.put(mInfo);
 
-    // fill tx buffer with info
-    this->txBuf[HEADER_NODE_UID_OFFSET] = (uint8_t)(mInfo.nodeUid >> 8);
-    this->txBuf[HEADER_NODE_UID_OFFSET+1] = (uint8_t)(mInfo.nodeUid & 0x00FF);
-    this->txBuf[HEADER_MESG_UID_OFFSET] = (uint8_t)(mInfo.msgUid >> 8);
-    this->txBuf[HEADER_MESG_UID_OFFSET+1] = (uint8_t)(mInfo.msgUid & 0x00FF);
+    this->initHeader(mUID);
+    this->txBuf[HEADER_TYPE_OFFSET] = type;
+    this->txBuf[HEADER_PAYLOAD_LEN_OFFSET] = len;
 
-    // set hop count to 0
-    this->txBuf[HEADER_HOPS_OFFSET] = 0;
-    this->txBuf[HEADER_PAYLOAD_LEN_OFFSET] = pLen;
+    switch(type) {
+        case GATEWAY_BEACON:{
+            this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(BROADCAST_UID >> 8);
+            this->txBuf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(BROADCAST_UID & 0x00FF);
+            this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = (uint8_t)(this->uid >> 8);
+            this->txBuf[HEADER_PREVIOUS_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
+        } break;
+    
+        default: return false;
+    }
+
+    if(payload != NULL){
+        // copy payload to tx Buffer
+        uint8_t * pPtr = (this->txBuf + HEADER_PAYLOAD_OFFSET);
+        memcpy(pPtr, payload, len);
+    }
+
+    // transmit
+    txMessage(len + HEADER_SIZE);
+
+    return true;
 }
+
+void LoRaMultiHop::initHeader(Msg_UID_t mUid){
+    // set hop count to 0
+    this->txBuf[HEADER_NODE_UID_OFFSET] = (uint8_t)(this->uid >> 8);
+    this->txBuf[HEADER_NODE_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
+    this->txBuf[HEADER_MESG_UID_OFFSET] = (uint8_t)(mUid >> 8);
+    this->txBuf[HEADER_MESG_UID_OFFSET+1] = (uint8_t)(mUid & 0x00FF);
+    
+    this->txBuf[HEADER_HOPS_OFFSET] = 0;
+} 
+
+void LoRaMultiHop::updateHeader(uint8_t * buf, uint8_t pLen){
+    // set hop count to 0
+    this->txBuf[HEADER_HOPS_OFFSET]++;
+
+    this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(this->shortestRoute.viaNode >> 8);
+    this->txBuf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(this->shortestRoute.viaNode & 0x00FF);
+    this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = (uint8_t)(this->uid >> 8);
+    this->txBuf[HEADER_PREVIOUS_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
+} 
+
 
 bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
     if(len < HEADER_SIZE){
@@ -241,6 +251,7 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
     }
 
     switch(buf[HEADER_TYPE_OFFSET]){
+        // Gateway beacons are used to determine the shortest path (least hops) to the gateway
         case GATEWAY_BEACON:{
             Node_UID_t receivedFrom = this->getNodeUidFromBuffer(buf, PREVIOUS_NODE);
             uint8_t hops = buf[HEADER_HOPS_OFFSET];
@@ -251,8 +262,23 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
                 this->shortestRoute.hopsToGateway = hops+1;
                 this->shortestRoute.viaNode = receivedFrom;
             }
+            else{
+                if(hops+1 < this->shortestRoute.hopsToGateway){
+                    // we've found a faster route
+                    this->shortestRoute.hopsToGateway = hops+1;
+                    this->shortestRoute.viaNode = receivedFrom;
+                }
+            }
+
+            Serial.println("Shortest path info updated");
+            Serial.print(" - gateway via: 0x");
+            Serial.println(this->shortestRoute.viaNode, HEX);
+            Serial.print(" - in: ");
+            Serial.print(this->shortestRoute.hopsToGateway);
+            Serial.println(" hops");
         } break;
 
+        // sensor 
         case DATA_BROADCAST:{
             // todo
         } break;
@@ -266,7 +292,7 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
         } break;
     }
 
-    return true;
+    return this->forwardMessage(buf, len);
 }
 
 bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
@@ -278,23 +304,26 @@ bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
     mInfo.msgUid = getMsgUidFromBuffer(buf);
 
     if(this->floodBuffer.find(mInfo) == CB_SUCCESS){
-        #ifdef DEBUG
+#ifdef DEBUG
         Serial.println(F("Duplicate. Message not forwarded."));
-        #endif
+#endif
         return false;
     }
     else{
-        #ifdef DEBUG
+#ifdef DEBUG
         Serial.println(F("Message will be forwarded."));
-        #endif
+#endif
     }
 
-    this->initMsgInfo(mInfo, buf[HEADER_PAYLOAD_LEN_OFFSET]);
-    this->txBuf[HEADER_HOPS_OFFSET] = buf[HEADER_HOPS_OFFSET] + 1;
+    // add message info to flood buffer
+    this->floodBuffer.put(mInfo);
+    
+    // copy complete message to tx Buffer
+    uint8_t * pPtr = (this->txBuf);
+    memcpy(pPtr, buf, len);
 
-    // copy payload to tx Buffer
-    uint8_t * pPtr = (this->txBuf + HEADER_PAYLOAD_OFFSET);
-    memcpy(pPtr, buf+HEADER_PAYLOAD_OFFSET, buf[HEADER_PAYLOAD_LEN_OFFSET]);
+    // update header 
+    this->updateHeader(buf, len);
 
     // schedule tx
     uint16_t backoff = (uint16_t)(random() % 1000);
@@ -306,7 +335,7 @@ bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
 }
 
 void LoRaMultiHop::txMessage(uint8_t len){
-    #ifdef DEBUG
+#ifdef DEBUG
     Serial.print("TX MSG: ");
     for(uint8_t i=0; i<len; i++){
         if(this->txBuf[i] < 16){
@@ -315,13 +344,13 @@ void LoRaMultiHop::txMessage(uint8_t len){
         Serial.print(this->txBuf[i], HEX);
         Serial.print(" ");
     }
-    #endif
+#endif
 
     rf95.send(this->txBuf, len);
     rf95.waitPacketSent(1000);
-    #ifdef DEBUG
+#ifdef DEBUG
     Serial.println("| OK");
-    #endif
+#endif
     this->txPending = false;
 }
 
