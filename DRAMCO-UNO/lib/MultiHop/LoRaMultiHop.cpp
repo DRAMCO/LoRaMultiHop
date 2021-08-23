@@ -28,6 +28,7 @@ MsgReceivedCb mrc = NULL;
 
 LoRaMultiHop::LoRaMultiHop(NodeType_t nodeType){
     this->type = nodeType;
+    this->shortestRoute.hopsToGateway=0;
 }
 
 bool LoRaMultiHop::begin(){
@@ -198,10 +199,21 @@ void LoRaMultiHop::initMsgInfo(uint8_t pLen){
 }
 
 bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
+    if(len < HEADER_SIZE){
+        return false;
+    }
+
     switch(buf[HEADER_TYPE_OFFSET]){
         case GATEWAY_BEACON:{
-            Node_UID_t receivedFrom = buf[HEADER_PREVIOUS_UID_OFFSET];
+            Node_UID_t receivedFrom = this->getNodeUidFromBuffer(buf, PREVIOUS_NODE);
             uint8_t hops = buf[HEADER_HOPS_OFFSET];
+            Msg_UID_t msgId = this->getMsgUidFromBuffer(buf);
+            if(this->shortestRoute.lastGatewayBeacon != msgId){
+                // new gateway beacon -> route to gateway info needs to be updated
+                this->shortestRoute.lastGatewayBeacon = msgId;
+                this->shortestRoute.hopsToGateway = hops+1;
+                this->shortestRoute.viaNode = receivedFrom;
+            }
         } break;
         
         case DATA_BROADCAST:{
@@ -216,13 +228,17 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
             // todo
         } break;
     }
+
+    return true;
 }
 
-
 bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
+    if(len < HEADER_SIZE){
+        return false;
+    }
     MsgInfo_t mInfo;
-    mInfo.nodeUid = (uint16_t)(buf[0]<<8 | buf[1]);
-    mInfo.msgUid = (uint16_t)(buf[2]<<8 | buf[3]);
+    mInfo.nodeUid = getNodeUidFromBuffer(buf);
+    mInfo.msgUid = getMsgUidFromBuffer(buf);
 
     if(this->floodBuffer.find(mInfo) == CB_SUCCESS){
         Serial.println(F("Duplicate. Message not forwarded."));
@@ -275,4 +291,25 @@ void LoRaMultiHop::reconfigModem(void){
 
     // lowest transmission power possible
     rf95.setTxPower(5, false);
+}
+
+Node_UID_t LoRaMultiHop::getNodeUidFromBuffer(uint8_t * buf, NodeID_t which){
+    switch (which){
+        case NEXT_NODE: {
+            return (Node_UID_t)(buf[HEADER_NEXT_UID_OFFSET]<<8 | buf[HEADER_NEXT_UID_OFFSET+1]);
+        } break;
+        
+        case PREVIOUS_NODE: {
+            return (Node_UID_t)(buf[HEADER_PREVIOUS_UID_OFFSET]<<8 | buf[HEADER_PREVIOUS_UID_OFFSET+1]);
+        } break;
+        
+        default: {
+            return (Node_UID_t)(buf[HEADER_NODE_UID_OFFSET]<<8 | buf[HEADER_NODE_UID_OFFSET+1]);
+        } break;
+    }
+    return 0x0000;
+}
+
+Msg_UID_t LoRaMultiHop::getMsgUidFromBuffer(uint8_t * buf){
+    return (Msg_UID_t)(buf[HEADER_MESG_UID_OFFSET]<<8 | buf[HEADER_MESG_UID_OFFSET+1]);
 }

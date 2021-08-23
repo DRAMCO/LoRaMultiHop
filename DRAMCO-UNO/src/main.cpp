@@ -21,7 +21,7 @@ bool btnPressed = false;
 unsigned long prevTT = 0;
 
 //LoRaMultiHop multihop(GATEWAY);
-LoRaMultiHop multihop(SENSOR_NODE);
+LoRaMultiHop multihop(SENSOR);
 
 ISR (PCINT0_vect){ //  pin change interrupt for D8 to D13
   PCIFR  |= bit (digitalPinToPCICRbit(PIN_BUTTON)); // clear any outstanding interrupt

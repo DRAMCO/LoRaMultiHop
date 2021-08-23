@@ -17,8 +17,20 @@ typedef enum msgTypes{
 
 typedef enum nodeTypes{
     GATEWAY,
-    SENSOR_NODE
+    SENSOR
 } NodeType_t;
+
+typedef enum nodeIds{
+    SOURCE_NODE,
+    NEXT_NODE,
+    PREVIOUS_NODE
+} NodeID_t;
+
+typedef struct routeInfo{
+    Node_UID_t viaNode;
+    uint8_t hopsToGateway;
+    Msg_UID_t lastGatewayBeacon;
+} RouteToGatewayInfo_t;
 
 typedef void (*MsgReceivedCb)(uint8_t *, uint8_t);
 
@@ -30,7 +42,7 @@ typedef void (*MsgReceivedCb)(uint8_t *, uint8_t);
 
 class LoRaMultiHop{
     public:
-        LoRaMultiHop(NodeType_t nodeType=SENSOR_NODE);
+        LoRaMultiHop(NodeType_t nodeType=SENSOR);
         bool begin();
         void loop();
         bool sendMessage(String str);
@@ -46,17 +58,19 @@ class LoRaMultiHop{
         bool handleMessage(uint8_t * buf, uint8_t len);
         bool forwardMessage(uint8_t * buf, uint8_t len);
 
+        Node_UID_t getNodeUidFromBuffer(uint8_t * buf, NodeID_t which=SOURCE_NODE);
+        Msg_UID_t getMsgUidFromBuffer(uint8_t * buf);
+
         bool txPending;
         unsigned long txTime;
         uint8_t txLen;
         uint8_t txBuf[RH_RF95_MAX_MESSAGE_LEN];
         uint8_t rxBuf[RH_RF95_MAX_MESSAGE_LEN];
 
-
         NodeType_t type;
         Node_UID_t uid;
-        Node_UID_t shortestPathToGateway;
-        uint8_t hopsToGateway;
+
+        RouteToGatewayInfo_t shortestRoute;
 
         CircBuffer floodBuffer;
 };
