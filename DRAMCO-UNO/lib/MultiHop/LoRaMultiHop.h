@@ -40,11 +40,23 @@ typedef void (*MsgReceivedCb)(uint8_t *, uint8_t);
 #define PIN_MODEM_SS      6
 #define PIN_MODEM_INT     2
 
+#define DEBUG
+
+typedef struct msg{
+  MsgInfo_t info;
+  uint8_t hops;
+  uint8_t payloadLength;
+  uint8_t * payload;
+} Msg_t;
+
+typedef void (*MsgReceivedCb)(uint8_t *, uint8_t);
+
 class LoRaMultiHop{
     public:
         LoRaMultiHop(NodeType_t nodeType=SENSOR);
         bool begin();
         void loop();
+
         bool sendMessage(String str);
         bool sendMessage(uint8_t * buf, uint8_t len);
         void setMsgReceivedCb(MsgReceivedCb cb);
@@ -54,6 +66,8 @@ class LoRaMultiHop{
         void initMsgInfo(MsgInfo_t info, uint8_t pLen); // use existing info
         void initMsgInfo(uint8_t pLen); // auto generate msg uid
         void txMessage(uint8_t len);
+
+        bool waitCADDone(uint16_t timeout);
 
         bool handleMessage(uint8_t * buf, uint8_t len);
         bool forwardMessage(uint8_t * buf, uint8_t len);
@@ -76,4 +90,3 @@ class LoRaMultiHop{
 };
 
 #endif	/* __LORA_MULTI_HOP__ */
-

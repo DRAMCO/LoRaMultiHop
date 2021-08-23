@@ -83,6 +83,7 @@
 #define RH_RF95_REG_24_HOP_PERIOD                          0x24
 #define RH_RF95_REG_25_FIFO_RX_BYTE_ADDR                   0x25
 #define RH_RF95_REG_26_MODEM_CONFIG3                       0x26
+#define RH_RF95_REG_2C_RSSIWIDEBAND                        0x2C
 
 #define RH_RF95_REG_40_DIO_MAPPING1                        0x40
 #define RH_RF95_REG_41_DIO_MAPPING2                        0x41
@@ -562,6 +563,8 @@ public:
     /// \return true if initialisation succeeded.
     virtual bool    init();
 
+    virtual bool init(bool startOver);
+
     /// Prints the value of all chip registers
     /// to the Serial device if RH_HAVE_SERIAL is defined for the current platform
     /// For debugging purposes only.
@@ -587,6 +590,10 @@ public:
     /// This can be called multiple times in a timeout loop
     /// \return true if a new, complete, error-free uncollected message is available to be retreived by recv()
     virtual bool    available();
+
+    /// Gets random number by RSSI measurement
+    /// Added by Guus Leenders
+    uint32_t random(); 
 
     /// Turns the receiver on if it not already on.
     /// If there is a valid message available, copy it to buf and return true
