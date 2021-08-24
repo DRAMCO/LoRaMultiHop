@@ -70,17 +70,17 @@ return false;
     Serial.print(F("Setting node UID: "));
 #endif
 
+    uint32_t r = rf95.random();
+    randomSeed(r);  
     if(this->type == GATEWAY){
         this->uid = GATEWAY_UID;
     }
     else{
-        this->uid = (Node_UID_t) rf95.random();
+        this->uid = (Node_UID_t) r;
     }
 #ifdef DEBUG
     Serial.println(uid, HEX);
 #endif
-
-    randomSeed(this->uid);
 
     return true;
 }
@@ -90,13 +90,13 @@ void LoRaMultiHop::loop(void){
 
 #ifdef VERY_LOW_POWER
 #ifdef DEBUG
-    Serial.flush();
+    Serial.flush(); // This takes time! Adjust in sleep
     Serial.end();
 #endif
 
-    DramcoUno.sleep(random(10,65), false); // First sleep with 3v3 off
-    DramcoUno.sleep(30, true); // Let 3v3 get stabilised
-    rf95.init(true);
+    DramcoUno.sleep(random(10,PREAMBLE_DURATION-45), DRAMCO_UNO_3V3_DISABLE); // First sleep with 3v3 off
+    DramcoUno.sleep(30, DRAMCO_UNO_3V3_ACTIVE); // Let 3v3 get stabilised
+    rf95.init(false);
     this->reconfigModem();
 
 #ifdef DEBUG
@@ -105,12 +105,14 @@ void LoRaMultiHop::loop(void){
 #endif
 
 #ifndef VERY_LOW_POWER
-    DramcoUno.sleep(random(10,95), true);
+    DramcoUno.sleep(random(10,PREAMBLE_DURATION-5), true);
 #endif
 
-    rf95.setModeCad(); // listen for channel activity
+#ifdef DEBUG_LED
     digitalWrite(DRAMCO_UNO_LED_NAME, HIGH);
-
+#endif
+    rf95.setModeCad(); // listen for channel activity
+    
     if(!this->waitCADDone(1000)){
 #ifdef DEBUG
         Serial.println("CAD failed");
@@ -120,7 +122,7 @@ void LoRaMultiHop::loop(void){
     // if channel activity has been detected during the previous CAD - enable RX and receive message
     if(rf95.cadDetected()){
         rf95.setModeRx();
-        rf95.waitAvailableTimeout(1000);
+        rf95.waitAvailableTimeout(random(3*PREAMBLE_DURATION,6*PREAMBLE_DURATION));
         uint8_t len = RH_RF95_MAX_MESSAGE_LEN;
         if(rf95.recv(this->rxBuf, &len)){
 #ifdef DEBUG
@@ -137,7 +139,7 @@ void LoRaMultiHop::loop(void){
             Serial.println(F("Message receive failed"));
 #endif
         }
-        this->txTime += random(150,300);
+        this->txTime += random(150,300); // If CAD detected, add 150-300ms to pending schedule time of next message
     }
     else{
         // handle any pending tx
@@ -154,16 +156,14 @@ void LoRaMultiHop::loop(void){
 }
 
 bool LoRaMultiHop::waitCADDone(uint16_t timeout){
-    unsigned long starttime = millis();
-    while ((millis() - starttime) < timeout){
+    unsigned long starttime = DramcoUno.millisWithOffset();
+    while ((DramcoUno.millisWithOffset() - starttime) < timeout){
         if (rf95.cadDone()){ // Any previous transmit finished?
            return true;
         }
-	    YIELD;
     }
     return false;
 }
-
 
 void LoRaMultiHop::setMsgReceivedCb(MsgReceivedCb cb){
     mrc = cb;
@@ -347,7 +347,7 @@ bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
     this->updateHeader(buf, len);
 
     // schedule tx
-    uint8_t backoff = (uint8_t) random();
+    uint8_t backoff =  random(PREAMBLE_DURATION,3*PREAMBLE_DURATION);
     this->txTime = DramcoUno.millisWithOffset() + backoff;
 #ifdef DEBUG
     Serial.print("Backoff [ms]: ");
@@ -373,6 +373,7 @@ void LoRaMultiHop::txMessage(uint8_t len){
         Serial.print(this->txBuf[i], HEX);
         Serial.print(" ");
     }
+    Serial.println();
 #endif
     this->txPending = false;
 }
@@ -383,7 +384,7 @@ void LoRaMultiHop::reconfigModem(void){
 
     ///< Bw = 500 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on. Fast+short range
     rf95.setModemConfig(RH_RF95::Bw500Cr45Sf128);
-    rf95.setPreambleLength(390); // 100 ms cycle for wakeup
+    rf95.setPreambleLength(PREAMBLE_DURATION*390/100); // 100 ms cycle for wakeup
     // From my understanding of the datasheet, preamble length in symbols = cycletime * BW / 2^SF. So,
     // for 100ms  cycle at 500 kHz and SF7, preamble = 0.100 * 500000 / 128 = 390.6 symbols.
     // Max value 65535

@@ -5,6 +5,8 @@
 #include <RH_RF95.h>
 #include "CircBuffer.h"
 
+#define PREAMBLE_DURATION 200.0
+
 #define MAX_BUF_SIZE 16
 
 #define PIN_ENABLE_3V3    8

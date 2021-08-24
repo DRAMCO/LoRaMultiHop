@@ -87,6 +87,9 @@
 #define DRAMCO_UNO_INT_ACTION_WAKE		   	       1
 #define DRAMCO_UNO_INT_ACTION_SEND_ACC		       2
 
+#define DRAMCO_UNO_3V3_ACTIVE				       true
+#define DRAMCO_UNO_3V3_DISABLE				       false
+
 // #define DEBUG
 
 
@@ -143,9 +146,9 @@ class DramcoUnoClass {
 
 		// --- Sleep ---
 		unsigned long sleep(uint32_t d);
-		unsigned long sleep(uint32_t d, bool keep3v3active);
+		unsigned long sleep(uint32_t d, bool keep3v3active, bool sleepOnce = false);
 		static void _isrWdt(); 
-		static unsigned long _sleep(unsigned long maxWaitTimeMillis);
+		static unsigned long _sleep(unsigned long maxWaitTimeMillis, bool sleepOnce = false);
 		static unsigned long _wdtEnableForSleep(const unsigned long maxWaitTimeMillis);	
 		static void _wdtEnableInterrupt();
 	private:

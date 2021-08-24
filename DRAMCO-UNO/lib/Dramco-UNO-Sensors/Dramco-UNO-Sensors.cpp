@@ -258,20 +258,16 @@ float DramcoUnoClass::readSoil(){
 }
 
 // --- Sleep ---
-unsigned long DramcoUnoClass::sleep(uint32_t d, bool keep3v3active){
+unsigned long DramcoUnoClass::sleep(uint32_t d, bool keep3v3active, bool sleepOnce = false){
     _keep3V3Active = keep3v3active;
-    return DramcoUnoClass::sleep(d);
+    return DramcoUnoClass::_sleep(d, sleepOnce);
 }
 
 unsigned long DramcoUnoClass::sleep(uint32_t d){
-    #ifdef DEBUG
-    Serial.flush();
-    #endif
     return DramcoUnoClass::_sleep(d);
 }
 
-
-unsigned long DramcoUnoClass::_sleep(unsigned long maxWaitTimeMillis) {
+unsigned long DramcoUnoClass::_sleep(unsigned long maxWaitTimeMillis, bool sleepOnce = false) {
     
     uint8_t d_d;
     uint8_t v_d;
@@ -283,8 +279,8 @@ unsigned long DramcoUnoClass::_sleep(unsigned long maxWaitTimeMillis) {
     
     
         // Backup ports before sleep
-        uint8_t d_d = DDRD;
-        uint8_t v_d = PORTD;
+        d_d = DDRD;
+        v_d = PORTD;
         
         pinMode(1, OUTPUT);
         digitalWrite(1, LOW);
@@ -300,7 +296,7 @@ unsigned long DramcoUnoClass::_sleep(unsigned long maxWaitTimeMillis) {
     byte adcsraSave = ADCSRA;
 
     _millisInDeepSleep = 0;
-    while( _millisInDeepSleep <= maxWaitTimeMillis-1){ // -1 for enabling to stop sleeping
+    while( _millisInDeepSleep <= maxWaitTimeMillis-1 && !sleepOnce){ // -1 for enabling to stop sleeping
         sleep_enable(); // enables the sleep bit, a safety pin
         
         _wdtSleepTimeMillis = DramcoUnoClass::_wdtEnableForSleep(maxWaitTimeMillis-_millisInDeepSleep);
