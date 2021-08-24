@@ -37,11 +37,6 @@ static void pciDeinit(){
 // ------------------------ DRAMCO UNO LIB ------------------------
 void DramcoUnoClass::begin(){
 
-    #ifdef DEBUG
-    Serial.begin(DRAMCO_UNO_SERIAL_BAUDRATE);
-    Serial.println("Started");
-    #endif
-
     pinMode(DRAMCO_UNO_3V3_ENABLE_PIN, OUTPUT);
     digitalWrite(DRAMCO_UNO_3V3_ENABLE_PIN, LOW);
 

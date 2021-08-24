@@ -68,6 +68,11 @@ void setup(){
 #endif
 
 #ifdef DEBUG
+  Serial.println(F("Starting Dramco Uno firmware..."));
+#endif
+  DramcoUno.begin();
+
+#ifdef DEBUG
   Serial.println(F("Starting lora multihop..."));
 #endif
   if(!multihop.begin()){
@@ -82,16 +87,15 @@ void setup(){
 #endif
 
 #ifdef DEBUG
-  Serial.println(F("Starting Dramco Uno firmware..."));
+  Serial.println(F("Setting button press interrupt."));
 #endif
-  DramcoUno.begin();
-  DramcoUno.interruptOnButtonPress();
+DramcoUno.interruptOnButtonPress();
+
 #ifdef DEBUG
   Serial.println(F("Setup complete."));
   Serial.println(F("Press the button to send a message."));
 #endif
-
-
+  
 }
 
 void loop(){
