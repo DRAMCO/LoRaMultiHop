@@ -94,9 +94,9 @@ void LoRaMultiHop::loop(void){
     Serial.end();
 #endif
 
-    DramcoUno.sleep(random(10,65), false); // By passing false, 3V3 regulator will be off when in sleep
-    delay(30);
-    rf95.init(false);
+    DramcoUno.sleep(random(10,65), false); // First sleep with 3v3 off
+    DramcoUno.sleep(30, true); // Let 3v3 get stabilised
+    rf95.init(true);
     this->reconfigModem();
 
 #ifdef DEBUG
