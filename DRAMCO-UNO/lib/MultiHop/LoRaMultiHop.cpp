@@ -88,19 +88,24 @@ return false;
 void LoRaMultiHop::loop(void){
     rf95.sleep();
 
+#ifdef VERY_LOW_POWER
 #ifdef DEBUG
     Serial.flush();
     Serial.end();
 #endif
 
-    //delay(95);
-    DramcoUno.sleep(random(10,65), true); // By passing false, 3V3 regulator will be off when in sleep
+    DramcoUno.sleep(random(10,65), false); // By passing false, 3V3 regulator will be off when in sleep
     delay(30);
     rf95.init(false);
     this->reconfigModem();
 
 #ifdef DEBUG
     Serial.begin(115200);
+#endif
+#endif
+
+#ifndef VERY_LOW_POWER
+    DramcoUno.sleep(random(10,95), true);
 #endif
 
     rf95.setModeCad(); // listen for channel activity

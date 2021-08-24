@@ -273,19 +273,22 @@ unsigned long DramcoUnoClass::sleep(uint32_t d){
 
 unsigned long DramcoUnoClass::_sleep(unsigned long maxWaitTimeMillis) {
     
+    uint8_t d_d;
+    uint8_t v_d;
+
     if(!_keep3V3Active){
         digitalWrite(DRAMCO_UNO_3V3_ENABLE_PIN, LOW);
         digitalWrite(DRAMCO_UNO_ACCELEROMTER_INT_PIN, LOW);
         digitalWrite(DRAMCO_UNO_TEMPERATURE_SENSOR_ENABLE_PIN, LOW);
+    
+    
+        // Backup ports before sleep
+        uint8_t d_d = DDRD;
+        uint8_t v_d = PORTD;
+        
+        pinMode(1, OUTPUT);
+        digitalWrite(1, LOW);
     }
-    
-    // Backup ports before sleep
-    uint8_t d_d = DDRD;
-    uint8_t v_d = PORTD;
-    
-    pinMode(1, OUTPUT);
-    digitalWrite(1, LOW);
-
 
     // Adapted from https://github.com/PRosenb/DeepSleepScheduler/blob/1595995576be62041a1c9db1d51435550ca49c53/DeepSleepScheduler_avr_implementation.h
 
@@ -330,13 +333,17 @@ unsigned long DramcoUnoClass::_sleep(unsigned long maxWaitTimeMillis) {
     wdt_reset();
     wdt_disable();
 
-    DDRD = d_d;
-    PORTD = v_d;
+    if(!_keep3V3Active){
+        DDRD = d_d;
+        PORTD = v_d;
 
-    Serial.begin(DRAMCO_UNO_SERIAL_BAUDRATE);
+        Serial.begin(DRAMCO_UNO_SERIAL_BAUDRATE);
+        
+        digitalWrite(DRAMCO_UNO_ACCELEROMTER_INT_PIN, HIGH);
+        digitalWrite(DRAMCO_UNO_3V3_ENABLE_PIN, HIGH);
+    }
+
     
-    digitalWrite(DRAMCO_UNO_ACCELEROMTER_INT_PIN, HIGH);
-    digitalWrite(DRAMCO_UNO_3V3_ENABLE_PIN, HIGH);
     _millisOffset += _millisInDeepSleep;
     return _millisInDeepSleep;
 }
