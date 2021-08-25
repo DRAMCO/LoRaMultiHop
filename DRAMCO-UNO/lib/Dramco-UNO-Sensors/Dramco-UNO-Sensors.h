@@ -144,9 +144,12 @@ class DramcoUnoClass {
 		float readSoilMoisture();
 		float readSoil();
 
+		uint8_t random();
+
 		// --- Sleep ---
 		unsigned long sleep(uint32_t d);
 		unsigned long sleep(uint32_t d, bool keep3v3active, bool sleepOnce = false);
+		void fastSleep (void );
 		static void _isrWdt(); 
 		static unsigned long _sleep(unsigned long maxWaitTimeMillis, bool sleepOnce = false);
 		static unsigned long _wdtEnableForSleep(const unsigned long maxWaitTimeMillis);	

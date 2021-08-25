@@ -60,7 +60,8 @@ class LoRaMultiHop{
         void initHeader(Msg_UID_t uid);
         void txMessage(uint8_t len);
 
-        bool waitCADDone(uint16_t timeout);
+        bool waitCADDone( void );
+        bool waitRXAvailable(uint16_t timeout);
 
         bool handleMessage(uint8_t * buf, uint8_t len);
         bool forwardMessage(uint8_t * buf, uint8_t len);

@@ -257,6 +257,25 @@ float DramcoUnoClass::readSoil(){
     return readSoilMoisture();
 }
 
+uint8_t DramcoUnoClass::random(){
+    // From https://gist.github.com/bloc97/b55f684d17edd8f50df8e918cbc00f94
+    readAccelerationX(); // Enable and wake accelerometer
+
+    const uint8_t minEntropyScale = 4; //Resolution of the MPU sensor, the one I used outputed integers that are multiples of 4.
+
+    int16_t xBits = _accelerometer.readRawAccelX();
+    int16_t yBits = _accelerometer.readRawAccelY();
+    int16_t zBits = _accelerometer.readRawAccelZ();
+
+    uint8_t real4xBits = (xBits / minEntropyScale) & 0xF;
+    uint8_t real4yBits = (yBits / minEntropyScale) & 0xF;
+    uint8_t real4zBits = (zBits / minEntropyScale) & 0xF;
+
+    uint8_t random8Bits = ((real4xBits & 0x3) << 6) ^ (real4zBits << 4) ^ (real4yBits << 2) ^ real4xBits ^ (real4zBits >> 2);
+
+    return random8Bits;
+}
+
 // --- Sleep ---
 unsigned long DramcoUnoClass::sleep(uint32_t d, bool keep3v3active, bool sleepOnce = false){
     _keep3V3Active = keep3v3active;
@@ -379,6 +398,37 @@ unsigned long DramcoUnoClass::_wdtEnableForSleep(const unsigned long maxWaitTime
         wdt_enable(WDTO_15MS);
     }
     return wdtSleepTimeMillis;
+}
+
+void  DramcoUnoClass::fastSleep(void){
+    // Faster sleep, less deep cycle than implemented in dramcoUno, for time critical endings
+
+    // The next section is timing critical so interrupts are disabled.
+    cli();
+    // First clear any previous watchdog reset.
+    MCUSR &= ~(1 << WDRF);
+    // Now change the watchdog prescaler and interrupt enable bit so the
+    // watchdog reset only triggers the interrupt (and wakes from deep sleep)
+    // and not a full device reset.  This is a timing critical section of
+    // code that must happen in 4 cycles.
+    _WD_CONTROL_REG |=
+        (1 << WDCE) | (1 << WDE);   // Set WDCE and WDE to enable changes.
+    _WD_CONTROL_REG = WDTO_15MS;         // Set the prescaler bit values.
+    _WD_CONTROL_REG |= (1 << WDIE); // Enable only watchdog interrupts.
+    // Critical section finished, re-enable interrupts.
+    sei();
+
+    // Set full power-down sleep mode and go to sleep.
+    set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+    sleep_mode();
+
+    // Chip is now asleep!
+
+    // Once awakened by the watchdog execution resumes here.
+    // Start by disabling sleep.
+    sleep_disable();
+
+    _millisOffset += 60;
 }
 
 void DramcoUnoClass::_isrWdt() {

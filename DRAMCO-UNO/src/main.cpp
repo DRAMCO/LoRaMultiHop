@@ -72,6 +72,8 @@ void setup(){
 #endif
   DramcoUno.begin();
 
+Serial.println("Random number:");
+Serial.println(DramcoUno.random());
 #ifdef DEBUG
   Serial.println(F("Starting lora multihop..."));
 #endif

@@ -70,7 +70,7 @@ return false;
     Serial.print(F("Setting node UID: "));
 #endif
 
-    uint32_t r = rf95.random();
+    uint32_t r = rf95.random() * DramcoUno.random();
     randomSeed(r);  
     if(this->type == GATEWAY){
         this->uid = GATEWAY_UID;
@@ -113,7 +113,7 @@ void LoRaMultiHop::loop(void){
 #endif
     rf95.setModeCad(); // listen for channel activity
     
-    if(!this->waitCADDone(1000)){
+    if(!this->waitCADDone()){
 #ifdef DEBUG
         Serial.println("CAD failed");
 #endif
@@ -155,12 +155,19 @@ void LoRaMultiHop::loop(void){
     }
 }
 
-bool LoRaMultiHop::waitCADDone(uint16_t timeout){
+bool LoRaMultiHop::waitCADDone( void ){
+    DramcoUno.fastSleep();
+    return rf95.cadDone();
+}
+
+bool LoRaMultiHop::waitRXAvailable(uint16_t timeout){
     unsigned long starttime = DramcoUno.millisWithOffset();
     while ((DramcoUno.millisWithOffset() - starttime) < timeout){
-        if (rf95.cadDone()){ // Any previous transmit finished?
+        DramcoUno.fastSleep();
+        if (rf95.available()){
            return true;
-        }
+	}
+	YIELD;
     }
     return false;
 }
