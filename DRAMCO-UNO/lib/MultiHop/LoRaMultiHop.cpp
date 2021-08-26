@@ -136,7 +136,7 @@ void LoRaMultiHop::loop(void){
         }
         else{
 #ifdef DEBUG
-            Serial.println(F("Message receive failed"));
+            //Serial.println(F("Message receive failed"));
 #endif
         }
         this->txTime += random(150,300); // If CAD detected, add 150-300ms to pending schedule time of next message
@@ -145,8 +145,8 @@ void LoRaMultiHop::loop(void){
         // handle any pending tx
         if(txPending){
             if(DramcoUno.millisWithOffset() > this->txTime){
-                Serial.print("T now [ms]: ");
-                Serial.println(DramcoUno.millisWithOffset());
+                /*Serial.print("T now [ms]: ");
+                Serial.println(DramcoUno.millisWithOffset());*/
                 this->txMessage(txLen);
             }
         }
@@ -308,12 +308,12 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
                 }
             }
             if(routeUpdated){
-                Serial.println("Shortest path info updated");
-                Serial.print(" - gateway via: 0x");
+                Serial.println(F("Shortest path info updated"));
+                Serial.print(F(" - gateway via: 0x"));
                 Serial.println(this->shortestRoute.viaNode, HEX);
-                Serial.print(" - in: ");
+                Serial.print(F(" - in: "));
                 Serial.print(this->shortestRoute.hopsToGateway);
-                Serial.println(" hops");
+                Serial.println(F(" hops"));
             }
             else{
                 Serial.println("Route not updated.");
@@ -330,12 +330,15 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
 
         case DATA_ROUTED:{
             Node_UID_t sentTo = this->getNodeUidFromBuffer(buf, NEXT_NODE);
+            Serial.println(F("Message sent to this node"));
             if(sentTo == this->uid){
                 if(sentTo == GATEWAY_UID){
                     // end of the line -> user cb
+                    Serial.println(F("Arrived at gateway -> user cb."));
                     return true;
                 }
                 else{ // data needs to be forwarded
+                    Serial.println(F("Data needs to be forwarded"));
                     buf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(this->shortestRoute.viaNode >> 8);
                     buf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(this->shortestRoute.viaNode & 0x00FF);
                     this->forwardMessage(buf, len);
@@ -386,10 +389,10 @@ bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
     uint8_t backoff =  random(PREAMBLE_DURATION,3*PREAMBLE_DURATION);
     this->txTime = DramcoUno.millisWithOffset() + backoff;
 #ifdef DEBUG
-    Serial.print("Backoff [ms]: ");
+    /*Serial.print("Backoff [ms]: ");
     Serial.println(backoff);
     Serial.print("TX sched [ms]: ");
-    Serial.println(this->txTime);
+    Serial.println(this->txTime);*/
 #endif
     this->txPending = true;
     this->txLen = len;
