@@ -36,20 +36,20 @@ LoRaMultiHop multihop(GATEWAY);
 #endif
 
 // callback function for when a new message is received
-void msgReceived(uint8_t * payload, uint8_t plen){
+void msgReceived(uint8_t * packet, uint8_t plen){
 #ifdef DEBUG
   //Serial.begin(115200);
-  Serial.print("Payload: ");
+  Serial.print("Packet: ");
 #endif
   for(uint8_t i=0; i<plen; i++){
 #ifdef DEBUG
-    if(payload[i] < 16){
+    if(packet[i] < 16){
         Serial.print("0");
     }
-    Serial.print(payload[i], HEX);
+    Serial.print(packet[i], HEX);
     Serial.print(" ");
 #endif
-    payloadBuf[i] = payload[i];
+    payloadBuf[i] = packet[i];
   }
 #ifdef DEBUG
   Serial.println();
