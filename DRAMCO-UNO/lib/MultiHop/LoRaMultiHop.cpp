@@ -284,26 +284,33 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
             Node_UID_t receivedFrom = this->getNodeUidFromBuffer(buf, PREVIOUS_NODE);
             uint8_t hops = buf[HEADER_HOPS_OFFSET];
             Msg_UID_t msgId = this->getMsgUidFromBuffer(buf);
+            bool routeUpdated = false;
             if(this->shortestRoute.lastGatewayBeacon != msgId){
                 // new gateway beacon -> route to gateway info needs to be updated
                 this->shortestRoute.lastGatewayBeacon = msgId;
-                this->shortestRoute.hopsToGateway = hops+1;
+                this->shortestRoute.hopsToGateway = hops;
                 this->shortestRoute.viaNode = receivedFrom;
+                routeUpdated = true;
             }
             else{
-                if(hops+1 < this->shortestRoute.hopsToGateway){
+                if(hops < this->shortestRoute.hopsToGateway){
                     // we've found a faster route
-                    this->shortestRoute.hopsToGateway = hops+1;
+                    this->shortestRoute.hopsToGateway = hops;
                     this->shortestRoute.viaNode = receivedFrom;
+                    routeUpdated = true;
                 }
             }
-
-            Serial.println("Shortest path info updated");
-            Serial.print(" - gateway via: 0x");
-            Serial.println(this->shortestRoute.viaNode, HEX);
-            Serial.print(" - in: ");
-            Serial.print(this->shortestRoute.hopsToGateway);
-            Serial.println(" hops");
+            if(routeUpdated){
+                Serial.println("Shortest path info updated");
+                Serial.print(" - gateway via: 0x");
+                Serial.println(this->shortestRoute.viaNode, HEX);
+                Serial.print(" - in: ");
+                Serial.print(this->shortestRoute.hopsToGateway);
+                Serial.println(" hops");
+            }
+            else{
+                Serial.println("Route not updated.");
+            }
         } break;
 
         // sensor 
