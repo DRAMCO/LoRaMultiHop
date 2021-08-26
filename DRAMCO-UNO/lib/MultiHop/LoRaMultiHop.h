@@ -17,6 +17,26 @@ typedef uint16_t Msg_UID_t;
 typedef uint16_t Node_UID_t;
 typedef uint8_t Msg_Type_t;
 
+#define GATEWAY_UID                 0x0000
+#define BROADCAST_UID               0xFFFF
+
+#define NODE_UID_SIZE               sizeof(Node_UID_t)
+#define MESG_UID_SIZE               sizeof(Msg_UID_t)
+#define MESG_TYPE_SIZE              sizeof(Msg_Type_t)
+#define MESG_HOPS_SIZE              1
+#define MESG_PAYLOAD_LEN_SIZE       1
+
+#define HEADER_NODE_UID_OFFSET      0
+#define HEADER_MESG_UID_OFFSET      (HEADER_NODE_UID_OFFSET + NODE_UID_SIZE)
+#define HEADER_HOPS_OFFSET          (HEADER_MESG_UID_OFFSET + MESG_UID_SIZE)
+#define HEADER_TYPE_OFFSET          (HEADER_HOPS_OFFSET + MESG_HOPS_SIZE)
+#define HEADER_NEXT_UID_OFFSET      (HEADER_TYPE_OFFSET + MESG_TYPE_SIZE)
+#define HEADER_PREVIOUS_UID_OFFSET  (HEADER_TYPE_OFFSET + MESG_TYPE_SIZE)
+//#define HEADER_PREVIOUS_UID_OFFSET  (HEADER_NEXT_UID_OFFSET + MESG_TYPE_SIZE) // saves 2 bytes
+#define HEADER_PAYLOAD_LEN_OFFSET   (HEADER_PREVIOUS_UID_OFFSET + NODE_UID_SIZE)
+#define HEADER_PAYLOAD_OFFSET       (HEADER_PAYLOAD_LEN_OFFSET + MESG_PAYLOAD_LEN_SIZE)
+#define HEADER_SIZE                 HEADER_PAYLOAD_OFFSET
+
 typedef enum msgTypes{
     GATEWAY_BEACON = 0x01,
     DATA_BROADCAST = 0x02,
@@ -47,13 +67,19 @@ typedef void (*MsgReceivedCb)(uint8_t *, uint8_t);
 class LoRaMultiHop{
     public:
         LoRaMultiHop(NodeType_t nodeType=SENSOR);
-        bool begin();
-        void loop();
+        bool begin( void );
+        void loop( void );
 
         bool sendMessage(String str, MsgType_t type);
         bool sendMessage(uint8_t * payload, uint8_t len, MsgType_t type);
         void setMsgReceivedCb(MsgReceivedCb cb);
         void reconfigModem(void);
+
+        bool presetPayload(uint8_t * payload, uint8_t len);
+        bool sendPresetPayload( void );
+        bool isPresetPayloadSent( void ){
+            return presetPayloadSent;
+        }
 
     private:
         void updateHeader(uint8_t * buf, uint8_t len);
@@ -79,6 +105,10 @@ class LoRaMultiHop{
         Node_UID_t uid;
 
         RouteToGatewayInfo_t shortestRoute;
+
+        uint8_t payloadBuffer[RH_RF95_MAX_MESSAGE_LEN - HEADER_SIZE];
+        uint8_t presetLength = 0;
+        bool presetPayloadSent = true;
 
         CircBuffer floodBuffer;
 };

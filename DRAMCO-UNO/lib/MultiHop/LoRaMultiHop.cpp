@@ -1,26 +1,6 @@
 #include "LoRaMultiHop.h"
 #include "Dramco-UNO-Sensors.h"
 
-#define GATEWAY_UID                 0x0000
-#define BROADCAST_UID               0xFFFF
-
-#define NODE_UID_SIZE               sizeof(Node_UID_t)
-#define MESG_UID_SIZE               sizeof(Msg_UID_t)
-#define MESG_TYPE_SIZE              sizeof(Msg_Type_t)
-#define MESG_HOPS_SIZE              1
-#define MESG_PAYLOAD_LEN_SIZE       1
-
-#define HEADER_NODE_UID_OFFSET      0
-#define HEADER_MESG_UID_OFFSET      (HEADER_NODE_UID_OFFSET + NODE_UID_SIZE)
-#define HEADER_HOPS_OFFSET          (HEADER_MESG_UID_OFFSET + MESG_UID_SIZE)
-#define HEADER_TYPE_OFFSET          (HEADER_HOPS_OFFSET + MESG_HOPS_SIZE)
-#define HEADER_NEXT_UID_OFFSET      (HEADER_TYPE_OFFSET + MESG_TYPE_SIZE)
-#define HEADER_PREVIOUS_UID_OFFSET  (HEADER_TYPE_OFFSET + MESG_TYPE_SIZE)
-//#define HEADER_PREVIOUS_UID_OFFSET  (HEADER_NEXT_UID_OFFSET + MESG_TYPE_SIZE) // saves 2 bytes
-#define HEADER_PAYLOAD_LEN_OFFSET   (HEADER_PREVIOUS_UID_OFFSET + NODE_UID_SIZE)
-#define HEADER_PAYLOAD_OFFSET       (HEADER_PAYLOAD_LEN_OFFSET + MESG_PAYLOAD_LEN_SIZE)
-#define HEADER_SIZE                 HEADER_PAYLOAD_OFFSET
-
 // Singleton instance of the radio driver
 RH_RF95 rf95(PIN_MODEM_SS, PIN_MODEM_INT);
 
@@ -352,6 +332,8 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
                 }
                 else{ // data needs to be forwarded
                     Serial.println(F("Data needs to be forwarded"));
+
+
                     this->forwardMessage(buf, len);
                 }
             }
@@ -367,6 +349,19 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
 }
 
 bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
+/* TODODOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+ *
+ *  1. Append preset payload if !presetPayloadSent
+ *  2. Include UID -> modify presetPayload
+ *  3. Remove payload length from header because obsolete
+ *
+ * 
+ *
+ */
+
+
+
+
     if(len < HEADER_SIZE){
         return false;
     }
@@ -462,4 +457,28 @@ Node_UID_t LoRaMultiHop::getNodeUidFromBuffer(uint8_t * buf, NodeID_t which){
 
 Msg_UID_t LoRaMultiHop::getMsgUidFromBuffer(uint8_t * buf){
     return (Msg_UID_t)(buf[HEADER_MESG_UID_OFFSET]<<8 | buf[HEADER_MESG_UID_OFFSET+1]);
+}
+
+bool LoRaMultiHop::presetPayload(uint8_t * payload, uint8_t len){
+    if(len > RH_RF95_MAX_MESSAGE_LEN-HEADER_SIZE-NODE_UID_SIZE){
+        return false;
+    }
+
+    if(!this->presetPayloadSent){
+        return false; // maybe append? future work
+    }
+
+    memcpy(this->payloadBuffer+NODE_UID_SIZE, payload, len);
+    this->presetLength = len;
+    this->presetPayloadSent = false;
+
+    return true;
+}
+
+bool LoRaMultiHop::sendPresetPayload( void ){
+    if(this->presetPayloadSent){
+        return true;
+    }
+    
+    this->sendMessage(this->payloadBuffer, this->presetLength, DATA_ROUTED);
 }

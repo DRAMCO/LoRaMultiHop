@@ -9,21 +9,25 @@
 #define PIN_BUTTON        10
 #define PIN_LED           4
 
-#define DRAMCO_UNO_LPP_DIGITAL_INPUT_MULT          1
-#define DRAMCO_UNO_LPP_ANALOG_INPUT_MULT           100
-#define DRAMCO_UNO_LPP_GENERIC_SENSOR_MULT         1
-#define DRAMCO_UNO_LPP_LUMINOSITY_MULT             1
-#define DRAMCO_UNO_LPP_TEMPERATURE_MULT            10
-#define DRAMCO_UNO_LPP_ACCELEROMETER_MULT          1000
-#define DRAMCO_UNO_LPP_PERCENTAGE_MULT         	   1
+#define DRAMCO_UNO_LPP_DIGITAL_INPUT_MULT   1
+#define DRAMCO_UNO_LPP_ANALOG_INPUT_MULT    100
+#define DRAMCO_UNO_LPP_GENERIC_SENSOR_MULT  1
+#define DRAMCO_UNO_LPP_LUMINOSITY_MULT      1
+#define DRAMCO_UNO_LPP_TEMPERATURE_MULT     10
+#define DRAMCO_UNO_LPP_ACCELEROMETER_MULT   1000
+#define DRAMCO_UNO_LPP_PERCENTAGE_MULT      1
 
-#define TOGGLE_TIME 60000
+#define TOGGLE_TIME                         60000
+#define MEASURE_INTERVAL                    60000
 
 bool newMsg = false;
+bool measureNow = false;
+
 uint8_t payloadBuf[RH_RF95_MAX_MESSAGE_LEN];
 uint8_t payloadLen = 0;
 
 unsigned long prevTT = 0;
+unsigned long prevMeasurement = 0;
 
 #ifdef COMPILE_FOR_GATEWAY
 LoRaMultiHop multihop(GATEWAY);
@@ -118,14 +122,20 @@ void loop(){
   if(autoToggle){
 #endif
 #ifdef COMPILE_FOR_SENSOR
+  if((DramcoUno.millisWithOffset() - prevMeasurement) > MEASURE_INTERVAL){
+    prevMeasurement = DramcoUno.millisWithOffset();
+    measureNow = true;
+  }
+
   // button press initiates a "send message"
-  if(DramcoUno.processInterrupt()){
+  if(DramcoUno.processInterrupt() || measureNow){
+    measureNow = false;
 #endif
 #ifdef DEBUG
     Serial.println(F("Composing message"));
 #endif
 
-    /*uint8_t data[15];
+    uint8_t data[15];
     uint8_t i = 0;
 
     uint16_t vx = DramcoUno.readAccelerationXInt();
@@ -143,8 +153,12 @@ void loop(){
     data[i++] = vz;
     data[i++] = vt >> 8;
     data[i++] = vt;
-    data[i++] = vl;*/
+    data[i++] = vl;
 
+    dataReady = true;
+  }
+
+  if(dataReady && sendData){
     DramcoUno.blink();
 
 #ifdef COMPILE_FOR_GATEWAY
@@ -155,7 +169,7 @@ void loop(){
 #endif
 
 #ifdef COMPILE_FOR_SENSOR
-    multihop.sendMessage("YYYY", DATA_ROUTED);
+    multihop.sendMessage(data, i, DATA_ROUTED);
 
     DramcoUno.interruptOnButtonPress();
   }
