@@ -273,7 +273,8 @@ void LoRaMultiHop::updateHeader(uint8_t * buf, uint8_t pLen){
     // set hop count to 0
     this->txBuf[HEADER_HOPS_OFFSET]++;
 
-//#if (HEADER_NEXT_UID_OFFSET==HEADER_PREVIOUS_UID_OFFSET)
+    // The following if statement is only needed when HEADER_NEXT_UID_OFFSET == HEADER_PREVIOUS_UID_OFFSET
+    // otherwise, the order of operations does not matter
     if(this->txBuf[HEADER_TYPE_OFFSET]==GATEWAY_BEACON){
         this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(this->shortestRoute.viaNode >> 8);
         this->txBuf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(this->shortestRoute.viaNode & 0x00FF);
@@ -286,8 +287,6 @@ void LoRaMultiHop::updateHeader(uint8_t * buf, uint8_t pLen){
         this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(this->shortestRoute.viaNode >> 8);
         this->txBuf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(this->shortestRoute.viaNode & 0x00FF);
     }
-//#else
-//#endif
 } 
 
 
