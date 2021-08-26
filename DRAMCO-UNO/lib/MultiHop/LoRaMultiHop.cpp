@@ -330,8 +330,8 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
 
         case DATA_ROUTED:{
             Node_UID_t sentTo = this->getNodeUidFromBuffer(buf, NEXT_NODE);
-            Serial.println(F("Message sent to this node"));
             if(sentTo == this->uid){
+                Serial.println(F("Message sent to this node"));
                 if(sentTo == GATEWAY_UID){
                     // end of the line -> user cb
                     Serial.println(F("Arrived at gateway -> user cb."));
