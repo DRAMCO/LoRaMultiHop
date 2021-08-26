@@ -273,10 +273,21 @@ void LoRaMultiHop::updateHeader(uint8_t * buf, uint8_t pLen){
     // set hop count to 0
     this->txBuf[HEADER_HOPS_OFFSET]++;
 
-    this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(this->shortestRoute.viaNode >> 8);
-    this->txBuf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(this->shortestRoute.viaNode & 0x00FF);
-    this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = (uint8_t)(this->uid >> 8);
-    this->txBuf[HEADER_PREVIOUS_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
+//#if (HEADER_NEXT_UID_OFFSET==HEADER_PREVIOUS_UID_OFFSET)
+    if(this->txBuf[HEADER_TYPE_OFFSET]==GATEWAY_BEACON){
+        this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(this->shortestRoute.viaNode >> 8);
+        this->txBuf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(this->shortestRoute.viaNode & 0x00FF);
+        this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = (uint8_t)(this->uid >> 8);
+        this->txBuf[HEADER_PREVIOUS_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
+    }
+    else{
+        this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = (uint8_t)(this->uid >> 8);
+        this->txBuf[HEADER_PREVIOUS_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
+        this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(this->shortestRoute.viaNode >> 8);
+        this->txBuf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(this->shortestRoute.viaNode & 0x00FF);
+    }
+//#else
+//#endif
 } 
 
 
@@ -339,8 +350,6 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
                 }
                 else{ // data needs to be forwarded
                     Serial.println(F("Data needs to be forwarded"));
-                    buf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(this->shortestRoute.viaNode >> 8);
-                    buf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(this->shortestRoute.viaNode & 0x00FF);
                     this->forwardMessage(buf, len);
                 }
             }
