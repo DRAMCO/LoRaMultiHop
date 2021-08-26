@@ -114,8 +114,13 @@ void loop(){
   multihop.loop();
 
 #ifdef COMPILE_FOR_GATEWAY
+  // timer initiates a "send message"
+  if(autoToggle){
+#endif
+#ifdef COMPILE_FOR_SENSOR
   // button press initiates a "send message"
-  if(autoToggle || DramcoUno.processInterrupt()){
+  if(DramcoUno.processInterrupt()){
+#endif
 #ifdef DEBUG
     Serial.println(F("Composing message"));
 #endif
@@ -142,11 +147,20 @@ void loop(){
 
     DramcoUno.blink();
 
+#ifdef COMPILE_FOR_GATEWAY
     multihop.sendMessage("UUUU", GATEWAY_BEACON);
+
+    //DramcoUno.interruptOnButtonPress();
+  }
+#endif
+
+#ifdef COMPILE_FOR_SENSOR
+    multihop.sendMessage("YYYY", DATA_ROUTED);
 
     DramcoUno.interruptOnButtonPress();
   }
 #endif
+
   if(newMsg){
     digitalWrite(PIN_LED, !digitalRead(PIN_LED));
     newMsg = false;

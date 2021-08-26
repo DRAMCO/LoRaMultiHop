@@ -224,6 +224,13 @@ bool LoRaMultiHop::sendMessage(uint8_t * payload, uint8_t len, MsgType_t type){
             this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = (uint8_t)(this->uid >> 8);
             this->txBuf[HEADER_PREVIOUS_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
         } break;
+
+        case DATA_ROUTED:{
+            this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = (uint8_t)(this->uid >> 8);
+            this->txBuf[HEADER_PREVIOUS_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
+            this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(this->shortestRoute.viaNode >> 8);
+            this->txBuf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(this->shortestRoute.viaNode & 0x00FF);
+        } break;
     
         default: return false;
     }
@@ -311,23 +318,38 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
             else{
                 Serial.println("Route not updated.");
             }
+            this->forwardMessage(buf, len);
+            return false; // no user callback
         } break;
 
         // sensor 
         case DATA_BROADCAST:{
             // todo
+            return false;
         } break;
 
         case DATA_ROUTED:{
-            // todo
+            Node_UID_t sentTo = this->getNodeUidFromBuffer(buf, NEXT_NODE);
+            if(sentTo == this->uid){
+                if(sentTo == GATEWAY_UID){
+                    // end of the line -> user cb
+                    return true;
+                }
+                else{ // data needs to be forwarded
+                    buf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(this->shortestRoute.viaNode >> 8);
+                    buf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(this->shortestRoute.viaNode & 0x00FF);
+                    this->forwardMessage(buf, len);
+                }
+            }
+            return false;
         } break;
 
         default:{
-            // todo
+            return false;
         } break;
     }
 
-    return this->forwardMessage(buf, len);
+    return false;
 }
 
 bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
