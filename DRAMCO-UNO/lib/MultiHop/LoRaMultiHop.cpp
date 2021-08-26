@@ -130,7 +130,7 @@ void LoRaMultiHop::loop(void){
 #endif
             if(this->handleMessage(this->rxBuf, len)){
                 if(mrc != NULL){
-                    mrc(this->rxBuf+HEADER_PAYLOAD_OFFSET, this->rxBuf[HEADER_PAYLOAD_LEN_OFFSET]);
+                    mrc(this->rxBuf, len);
                 }
             }
         }
@@ -298,6 +298,9 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
     switch(buf[HEADER_TYPE_OFFSET]){
         // Gateway beacons are used to determine the shortest path (least hops) to the gateway
         case GATEWAY_BEACON:{
+            if(this->uid == GATEWAY_UID){
+                return false; // we got our own beacon back
+            }
             Node_UID_t receivedFrom = this->getNodeUidFromBuffer(buf, PREVIOUS_NODE);
             uint8_t hops = buf[HEADER_HOPS_OFFSET];
             Msg_UID_t msgId = this->getMsgUidFromBuffer(buf);
