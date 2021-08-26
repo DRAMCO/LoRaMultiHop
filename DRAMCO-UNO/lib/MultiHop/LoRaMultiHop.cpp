@@ -128,7 +128,7 @@ void LoRaMultiHop::loop(void){
 #ifdef DEBUG
             Serial.println(F("Message received."));
 #endif
-            if(this->forwardMessage(this->rxBuf, len)){
+            if(this->handleMessage(this->rxBuf, len)){
                 if(mrc != NULL){
                     mrc(this->rxBuf+HEADER_PAYLOAD_OFFSET, this->rxBuf[HEADER_PAYLOAD_LEN_OFFSET]);
                 }
