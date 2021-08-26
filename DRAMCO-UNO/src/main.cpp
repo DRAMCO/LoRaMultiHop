@@ -17,7 +17,7 @@
 #define DRAMCO_UNO_LPP_ACCELEROMETER_MULT          1000
 #define DRAMCO_UNO_LPP_PERCENTAGE_MULT         	   1
 
-#define TOGGLE_TIME 10000
+#define TOGGLE_TIME 60000
 
 bool newMsg = false;
 uint8_t payloadBuf[RH_RF95_MAX_MESSAGE_LEN];
@@ -97,7 +97,7 @@ DramcoUno.interruptOnButtonPress();
   Serial.println(F("Setup complete."));
   Serial.println(F("Press the button to send a message."));
 #endif
-  
+  prevTT = DramcoUno.millisWithOffset() + TOGGLE_TIME;
 }
 
 void loop(){
