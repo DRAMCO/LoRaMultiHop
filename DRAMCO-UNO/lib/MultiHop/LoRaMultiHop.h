@@ -7,6 +7,7 @@
 
 #define PREAMBLE_DURATION 200.0 // In ms
 #define PRESET_MAX_LATENCY 10000 // In ms
+#define PRESET_MAX_LATENCY_RAND_WINDOW 1000 // Random window around PRESET_MAX_LATENCY
 
 #define MAX_BUF_SIZE 16     // Max preset buffer size 
 

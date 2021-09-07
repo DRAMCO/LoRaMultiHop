@@ -482,7 +482,7 @@ bool LoRaMultiHop::presetPayload(uint8_t * payload, uint8_t len){
     memcpy(this->presetBuffer+HEADER_EXTRA_PAYLOAD_OFFSET, payload, len);
     this->presetLength = len + NODE_UID_SIZE + MESG_PAYLOAD_LEN_SIZE;
     this->presetSent = false;
-    this->presetTime = DramcoUno.millisWithOffset() + PRESET_MAX_LATENCY;
+    this->presetTime = DramcoUno.millisWithOffset() + random(PRESET_MAX_LATENCY - PRESET_MAX_LATENCY_RAND_WINDOW, PRESET_MAX_LATENCY + PRESET_MAX_LATENCY_RAND_WINDOW);
     return true;
 }
 
