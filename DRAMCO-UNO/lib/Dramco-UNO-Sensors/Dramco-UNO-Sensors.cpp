@@ -130,9 +130,6 @@ float DramcoUnoClass::readAccelerationZ(){
 float DramcoUnoClass::readTemperatureAccelerometer(){
     digitalWrite(DRAMCO_UNO_3V3_ENABLE_PIN, HIGH);
     _accelerometer.begin();
-    #ifdef DEBUG
-    Serial.println("acc begin end");
-    #endif
     return _accelerometer.readTempC();
 }
 

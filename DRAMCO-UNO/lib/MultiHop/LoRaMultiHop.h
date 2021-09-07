@@ -5,9 +5,10 @@
 #include <RH_RF95.h>
 #include "CircBuffer.h"
 
-#define PREAMBLE_DURATION 200.0
+#define PREAMBLE_DURATION 200.0 // In ms
+#define PRESET_MAX_LATENCY 10000 // In ms
 
-#define MAX_BUF_SIZE 16
+#define MAX_BUF_SIZE 16     // Max preset buffer size 
 
 #define PIN_ENABLE_3V3    8
 #define PIN_MODEM_SS      6
@@ -26,16 +27,28 @@ typedef uint8_t Msg_Type_t;
 #define MESG_HOPS_SIZE              1
 #define MESG_PAYLOAD_LEN_SIZE       1
 
-#define HEADER_NODE_UID_OFFSET      0
-#define HEADER_MESG_UID_OFFSET      (HEADER_NODE_UID_OFFSET + NODE_UID_SIZE)
-#define HEADER_HOPS_OFFSET          (HEADER_MESG_UID_OFFSET + MESG_UID_SIZE)
-#define HEADER_TYPE_OFFSET          (HEADER_HOPS_OFFSET + MESG_HOPS_SIZE)
-#define HEADER_NEXT_UID_OFFSET      (HEADER_TYPE_OFFSET + MESG_TYPE_SIZE)
-#define HEADER_PREVIOUS_UID_OFFSET  (HEADER_TYPE_OFFSET + MESG_TYPE_SIZE)
-//#define HEADER_PREVIOUS_UID_OFFSET  (HEADER_NEXT_UID_OFFSET + MESG_TYPE_SIZE) // saves 2 bytes
-#define HEADER_PAYLOAD_LEN_OFFSET   (HEADER_PREVIOUS_UID_OFFSET + NODE_UID_SIZE)
-#define HEADER_PAYLOAD_OFFSET       (HEADER_PAYLOAD_LEN_OFFSET + MESG_PAYLOAD_LEN_SIZE)
-#define HEADER_SIZE                 HEADER_PAYLOAD_OFFSET
+
+// +----------+------+------+-------------------------+----------+--------------+---------+-------------+----------------------+-----------------+
+// |    0     |  2   |  3   |            4            |    6     |      8       |    9    |             |                      |                 |
+// +----------+------+------+-------------------------+----------+--------------+---------+-------------+----------------------+-----------------+
+// | MESG_UID | TYPE | HOPS | NEXT_UID = PREVIOUS_UID | NODE_UID | PAYLOAD_SIZE | PAYLOAD | (EXTRA_UID) | (EXTRA_PAYLOAD_SIZE) | (EXTRA_PAYLOAD) |
+// +----------+------+------+-------------------------+----------+--------------+---------+-------------+----------------------+-----------------+
+
+
+#define HEADER_MESG_UID_OFFSET          0
+#define HEADER_TYPE_OFFSET              (HEADER_MESG_UID_OFFSET + MESG_UID_SIZE)
+#define HEADER_HOPS_OFFSET              (HEADER_TYPE_OFFSET + MESG_TYPE_SIZE)
+#define HEADER_NEXT_UID_OFFSET          (HEADER_HOPS_OFFSET + MESG_HOPS_SIZE)
+#define HEADER_PREVIOUS_UID_OFFSET      (HEADER_HOPS_OFFSET + MESG_HOPS_SIZE)
+//#define HEADER_PREVIOUS_UID_OFFSET    (HEADER_NEXT_UID_OFFSET + MESG_TYPE_SIZE) // saves 2 bytes
+#define HEADER_NODE_UID_OFFSET          (HEADER_PREVIOUS_UID_OFFSET + NODE_UID_SIZE)
+#define HEADER_PAYLOAD_LEN_OFFSET       (HEADER_NODE_UID_OFFSET + NODE_UID_SIZE)
+#define HEADER_PAYLOAD_OFFSET           (HEADER_PAYLOAD_LEN_OFFSET + MESG_PAYLOAD_LEN_SIZE)
+#define HEADER_SIZE                     HEADER_PAYLOAD_OFFSET
+
+#define HEADER_EXTRA_NODE_UID_OFFSET    0
+#define HEADER_EXTRA_PAYLOAD_LEN_OFFSET (HEADER_EXTRA_NODE_UID_OFFSET + NODE_UID_SIZE)
+#define HEADER_EXTRA_PAYLOAD_OFFSET     (HEADER_PAYLOAD_LEN_OFFSET + MESG_PAYLOAD_LEN_SIZE)
 
 typedef enum msgTypes{
     GATEWAY_BEACON = 0x01,
@@ -78,7 +91,7 @@ class LoRaMultiHop{
         bool presetPayload(uint8_t * payload, uint8_t len);
         bool sendPresetPayload( void );
         bool isPresetPayloadSent( void ){
-            return presetPayloadSent;
+            return presetSent;
         }
 
     private:
@@ -106,9 +119,10 @@ class LoRaMultiHop{
 
         RouteToGatewayInfo_t shortestRoute;
 
-        uint8_t payloadBuffer[RH_RF95_MAX_MESSAGE_LEN - HEADER_SIZE];
+        uint8_t presetBuffer[MAX_BUF_SIZE];
         uint8_t presetLength = 0;
-        bool presetPayloadSent = true;
+        unsigned long presetTime;
+        bool presetSent = true;
 
         CircBuffer floodBuffer;
 };

@@ -311,7 +311,7 @@ bool RH_RF95::printRegisters()
     for (i = 0; i < sizeof(registers); i++)
     {
 	Serial.print(registers[i], HEX);
-	Serial.print(": ");
+	Serial.print(F(": "));
 	Serial.println(spiRead(registers[i]), HEX);
     }
 #endif

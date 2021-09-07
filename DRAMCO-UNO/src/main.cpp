@@ -105,6 +105,9 @@ DramcoUno.interruptOnButtonPress();
 }
 
 void loop(){
+  multihop.loop();
+
+  // --------------- COMPILE FOR GATEWAY ----------------
 #ifdef COMPILE_FOR_GATEWAY
   bool autoToggle = false;
 #ifdef TOGGLE_TIME
@@ -112,15 +115,14 @@ void loop(){
     prevTT = DramcoUno.millisWithOffset();
     autoToggle = true;
   }
+  if(DramcoUno.processInterrupt() || autoToggle){
+    multihop.sendMessage("UUUU", GATEWAY_BEACON);
+    DramcoUno.interruptOnButtonPress();
+  }
 #endif
 #endif
 
-  multihop.loop();
-
-#ifdef COMPILE_FOR_GATEWAY
-  // timer initiates a "send message"
-  if(autoToggle){
-#endif
+  // --------------- COMPILE FOR SENSOR ----------------
 #ifdef COMPILE_FOR_SENSOR
   if((DramcoUno.millisWithOffset() - prevMeasurement) > MEASURE_INTERVAL){
     prevMeasurement = DramcoUno.millisWithOffset();
@@ -130,7 +132,7 @@ void loop(){
   // button press initiates a "send message"
   if(DramcoUno.processInterrupt() || measureNow){
     measureNow = false;
-#endif
+
 #ifdef DEBUG
     Serial.println(F("Composing message"));
 #endif
@@ -155,24 +157,13 @@ void loop(){
     data[i++] = vt;
     data[i++] = vl;
 
-    dataReady = true;
-  }
-
-  if(dataReady && sendData){
-    DramcoUno.blink();
-
-#ifdef COMPILE_FOR_GATEWAY
-    multihop.sendMessage("UUUU", GATEWAY_BEACON);
-
-    //DramcoUno.interruptOnButtonPress();
-  }
-#endif
-
-#ifdef COMPILE_FOR_SENSOR
-    multihop.sendMessage(data, i, DATA_ROUTED);
+    // Add sensor data to preset payload, multihop will take care when it will be sent
+    // (within PRESET_MAX_LATENCY)
+    multihop.presetPayload(data, i);
 
     DramcoUno.interruptOnButtonPress();
   }
+
 #endif
 
   if(newMsg){
