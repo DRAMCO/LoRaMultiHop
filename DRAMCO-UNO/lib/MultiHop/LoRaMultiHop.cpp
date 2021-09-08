@@ -467,7 +467,7 @@ bool LoRaMultiHop::presetPayload(uint8_t * payload, uint8_t len){
     // forwarded, so we can append this payload to that message
 
     // Check if forward payload does not exceed max length
-    if(len > RH_RF95_MAX_MESSAGE_LEN-HEADER_SIZE-NODE_UID_SIZE){
+    if(len > RH_RF95_MAX_MESSAGE_LEN-HEADER_SIZE-NODE_UID_SIZE-MESG_PAYLOAD_LEN_SIZE){
         return false;
     }
 
