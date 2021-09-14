@@ -6,6 +6,14 @@ RH_RF95 rf95(PIN_MODEM_SS, PIN_MODEM_INT);
 
 MsgReceivedCb mrc = NULL;
 
+void printBuffer(uint8_t * buf, uint8_t len){
+    for(uint8_t i; i<len; i++){
+        if(buf[i]<16) Serial.print(" 0");
+        else Serial.print(' ');
+        Serial.print(buf[i], HEX);
+    }
+}
+
 LoRaMultiHop::LoRaMultiHop(NodeType_t nodeType){
     this->type = nodeType;
 }
@@ -110,6 +118,7 @@ void LoRaMultiHop::loop(void){
 #endif
             if(this->handleMessage(this->rxBuf, len)){
                 if(mrc != NULL){
+                    //mrc(this->rxBuf+HEADER_NODE_UID_OFFSET, len-HEADER_NODE_UID_OFFSET);
                     mrc(this->rxBuf, len);
                 }
             }
@@ -228,13 +237,7 @@ bool LoRaMultiHop::sendMessage(uint8_t * payload, uint8_t len, MsgType_t type){
 
 #ifdef DEBUG
     Serial.println(F("RAW payload:"));
-    for(uint8_t i=0; i<len+HEADER_SIZE; i++){
-        Serial.print(' ');
-        if(this->txBuf[i]<16){
-            Serial.print('0');
-        }
-        Serial.print(this->txBuf[i], HEX);
-    }
+    printBuffer(this->txBuf, len);
     Serial.println();
 #endif
 
@@ -280,9 +283,12 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
         return false;
     }
 
+    Serial.print("Type: ");
+    Serial.print(buf[HEADER_TYPE_OFFSET]);
     switch(buf[HEADER_TYPE_OFFSET]){
         // Gateway beacons are used to determine the shortest path (least hops) to the gateway
         case GATEWAY_BEACON:{
+            Serial.println(F(" = BEACON"));
             if(this->uid == GATEWAY_UID){
                 return false; // we got our own beacon back
             }
@@ -322,12 +328,20 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
 
         // sensor 
         case DATA_BROADCAST:{
+            Serial.println(F(" = DATA BROODKAST"));
+            if(this->uid == GATEWAY_UID){
+                Serial.println(F("Arrived at gateway -> user cb."));
+                return true;
+            }
             this->forwardMessage(buf, len);
             return false;
         } break;
 
         case DATA_ROUTED:{
+            Serial.println(F(" = DATA ROUTED"));
             Node_UID_t sentTo = this->getNodeUidFromBuffer(buf, NEXT_NODE);
+            Serial.print("To: 0x");
+            Serial.println(sentTo, HEX);
             if(sentTo == this->uid){
                 Serial.println(F("Message sent to this node"));
                 if(sentTo == GATEWAY_UID){
@@ -354,15 +368,6 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
 }
 
 bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
-/* TODODOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
- *
- *  1. Append preset payload if !presetPayloadSent
- *
- */
-
-
-
-
     if(len < HEADER_SIZE){
         return false;
     }
@@ -389,9 +394,17 @@ bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
     uint8_t * pPtr = (this->txBuf);
     memcpy(pPtr, buf, len);
 
+    Serial.println(F("Append preset payload"));
+    Serial.print(F("Forwarded packet:"));
+    printBuffer(this->txBuf, len);
+    Serial.println();
     // If a payload is waiting to be appended to incoming message: copy existing buffer after
     // this payload to make room for this payload
     if(!this->presetSent && this->presetLength + len < RH_RF95_MAX_MESSAGE_LEN){
+        Serial.print(F("Preset payload:"));
+        printBuffer(this->presetBuffer, this->presetLength);
+        Serial.println();
+
         memcpy(pPtr+len, this->presetBuffer, this->presetLength);
         len += this->presetLength;
         this->presetSent = true;
@@ -399,6 +412,10 @@ bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
 
     // update header 
     this->updateHeader(buf, len);
+
+    Serial.print(F("Updated packet:"));
+    printBuffer(this->txBuf, len);
+    Serial.println();
 
     // schedule tx
     uint8_t backoff =  random(PREAMBLE_DURATION,3*PREAMBLE_DURATION);
@@ -463,6 +480,9 @@ Msg_UID_t LoRaMultiHop::getMsgUidFromBuffer(uint8_t * buf){
 }
 
 bool LoRaMultiHop::presetPayload(uint8_t * payload, uint8_t len){
+    Serial.print(F("Payload:"));
+    printBuffer(payload, len);
+    Serial.println();
     // Preset payload ready for sending; we'll wait for a message that needs to be
     // forwarded, so we can append this payload to that message
 
@@ -477,10 +497,15 @@ bool LoRaMultiHop::presetPayload(uint8_t * payload, uint8_t len){
     }
 
     // Copy message to buffer
-    this->presetBuffer[HEADER_EXTRA_NODE_UID_OFFSET] = this->uid;
+    this->presetBuffer[HEADER_EXTRA_NODE_UID_OFFSET] =  (uint8_t)(this->uid >> 8);
+    this->presetBuffer[HEADER_EXTRA_NODE_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
     this->presetBuffer[HEADER_EXTRA_PAYLOAD_LEN_OFFSET] = len;
     memcpy(this->presetBuffer+HEADER_EXTRA_PAYLOAD_OFFSET, payload, len);
     this->presetLength = len + NODE_UID_SIZE + MESG_PAYLOAD_LEN_SIZE;
+    Serial.print(F("Payload preset:"));
+    printBuffer(this->presetBuffer, this->presetLength);
+    Serial.println();
+
     this->presetSent = false;
     this->presetTime = DramcoUno.millisWithOffset() + random(PRESET_MAX_LATENCY - PRESET_MAX_LATENCY_RAND_WINDOW, PRESET_MAX_LATENCY + PRESET_MAX_LATENCY_RAND_WINDOW);
     return true;
@@ -492,5 +517,5 @@ bool LoRaMultiHop::sendPresetPayload( void ){
     }
     this->presetSent = true;
     // Send message, but let go of extra header
-    return this->sendMessage(this->presetBuffer+HEADER_EXTRA_PAYLOAD_OFFSET, this->presetLength - NODE_UID_SIZE - MESG_PAYLOAD_LEN_SIZE, DATA_BROADCAST);
+    return this->sendMessage(this->presetBuffer+HEADER_EXTRA_PAYLOAD_OFFSET, this->presetLength - NODE_UID_SIZE - MESG_PAYLOAD_LEN_SIZE, DATA_ROUTED);
 }
