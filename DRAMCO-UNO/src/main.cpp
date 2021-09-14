@@ -17,8 +17,8 @@
 #define DRAMCO_UNO_LPP_ACCELEROMETER_MULT   1000
 #define DRAMCO_UNO_LPP_PERCENTAGE_MULT      1
 
-#define TOGGLE_TIME                         60000
-#define MEASURE_INTERVAL                    60000
+#define TOGGLE_TIME                         600000 // 10 min
+#define MEASURE_INTERVAL                    60000 // 1 min
 
 bool newMsg = false;
 bool measureNow = false;
@@ -48,10 +48,10 @@ void msgReceived(uint8_t * packet, uint8_t plen){
   for(uint8_t i=0; i<plen; i++){
 #ifdef DEBUG
     if(packet[i] < 16){
-        Serial.print("0");
+        Serial.print('0');
     }
     Serial.print(packet[i], HEX);
-    Serial.print(" ");
+    Serial.print(' ');
 #endif
     payloadBuf[i] = packet[i];
   }
@@ -140,25 +140,27 @@ void loop(){
     uint8_t data[15];
     uint8_t i = 0;
 
-    uint16_t vx = DramcoUno.readAccelerationXInt();
+    //uint16_t vx = DramcoUno.readAccelerationXInt();
 
-    uint16_t vy = DramcoUno.readAccelerationYInt();
-    uint16_t vz = DramcoUno.readAccelerationZInt();
+    //uint16_t vy = DramcoUno.readAccelerationYInt();
+    //uint16_t vz = DramcoUno.readAccelerationZInt();
     uint16_t vt = DramcoUno.readTemperatureAccelerometerInt();
-    uint8_t vl = DramcoUno.readLuminosity();
+    //uint8_t vl = DramcoUno.readLuminosity();
 
-    data[i++] = vx >> 8;
+    /*data[i++] = vx >> 8;
     data[i++] = vx;
     data[i++] = vy >> 8;
     data[i++] = vy;
     data[i++] = vz >> 8;
     data[i++] = vz;
-    data[i++] = vt >> 8;
-    data[i++] = vt;
-    data[i++] = vl;
+    */data[i++] = (uint8_t)(vt >> 8);
+    data[i++] = (uint8_t)vt;
+    //data[i++] = vl;
 
     // Add sensor data to preset payload, multihop will take care when it will be sent
     // (within PRESET_MAX_LATENCY)
+    Serial.print("vt ");
+    Serial.println(vt);
     multihop.presetPayload(data, i);
 
     DramcoUno.interruptOnButtonPress();
