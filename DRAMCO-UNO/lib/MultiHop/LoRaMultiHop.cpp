@@ -492,22 +492,31 @@ bool LoRaMultiHop::presetPayload(uint8_t * payload, uint8_t len){
     }
 
     // If there's already a new payload waiting to be sent, append it to that
-    if(!this->presetSent){
-        return false; // maybe append? future work
+    if(!this->presetSent && this->presetLength + len < RH_RF95_MAX_MESSAGE_LEN-HEADER_SIZE-NODE_UID_SIZE){
+        // Append to waiting payload, put new payload after existing payload
+        this->presetBuffer[this->presetLength + HEADER_EXTRA_NODE_UID_OFFSET] = (uint8_t)(this->uid >> 8);;
+        this->presetBuffer[this->presetLength + HEADER_EXTRA_NODE_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
+        this->presetBuffer[this->presetLength + HEADER_EXTRA_PAYLOAD_LEN_OFFSET] = len;
+        memcpy(this->presetBuffer+this->presetLength+HEADER_EXTRA_PAYLOAD_OFFSET, payload, len);
+        this->presetLength += len + NODE_UID_SIZE + MESG_PAYLOAD_LEN_SIZE;
+
+        // Keep presetSent and presetTime as previous
+    }else{
+        // Copy message to buffer
+        this->presetBuffer[HEADER_EXTRA_NODE_UID_OFFSET] =  (uint8_t)(this->uid >> 8);
+        this->presetBuffer[HEADER_EXTRA_NODE_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
+        this->presetBuffer[HEADER_EXTRA_PAYLOAD_LEN_OFFSET] = len;
+        memcpy(this->presetBuffer+HEADER_EXTRA_PAYLOAD_OFFSET, payload, len);
+        this->presetLength = len + NODE_UID_SIZE + MESG_PAYLOAD_LEN_SIZE;
+        
+        Serial.print(F("Payload preset:"));
+        printBuffer(this->presetBuffer, this->presetLength);
+        Serial.println();
+
+        this->presetSent = false;
+        this->presetTime = DramcoUno.millisWithOffset() + random(PRESET_MAX_LATENCY - PRESET_MAX_LATENCY_RAND_WINDOW, PRESET_MAX_LATENCY + PRESET_MAX_LATENCY_RAND_WINDOW);
+
     }
-
-    // Copy message to buffer
-    this->presetBuffer[HEADER_EXTRA_NODE_UID_OFFSET] =  (uint8_t)(this->uid >> 8);
-    this->presetBuffer[HEADER_EXTRA_NODE_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
-    this->presetBuffer[HEADER_EXTRA_PAYLOAD_LEN_OFFSET] = len;
-    memcpy(this->presetBuffer+HEADER_EXTRA_PAYLOAD_OFFSET, payload, len);
-    this->presetLength = len + NODE_UID_SIZE + MESG_PAYLOAD_LEN_SIZE;
-    Serial.print(F("Payload preset:"));
-    printBuffer(this->presetBuffer, this->presetLength);
-    Serial.println();
-
-    this->presetSent = false;
-    this->presetTime = DramcoUno.millisWithOffset() + random(PRESET_MAX_LATENCY - PRESET_MAX_LATENCY_RAND_WINDOW, PRESET_MAX_LATENCY + PRESET_MAX_LATENCY_RAND_WINDOW);
     return true;
 }
 
