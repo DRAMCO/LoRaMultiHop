@@ -159,8 +159,6 @@ void loop(){
 
     // Add sensor data to preset payload, multihop will take care when it will be sent
     // (within PRESET_MAX_LATENCY)
-    Serial.print("vt ");
-    Serial.println(vt);
     multihop.presetPayload(data, i);
 
     DramcoUno.interruptOnButtonPress();
