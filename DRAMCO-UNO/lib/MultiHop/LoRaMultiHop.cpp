@@ -15,6 +15,7 @@ void printBuffer(uint8_t * buf, uint8_t len){
 }
 
 LoRaMultiHop::LoRaMultiHop(NodeType_t nodeType){
+    this->latency = PRESET_MIN_LATENCY;
     this->type = nodeType;
 }
 
@@ -235,12 +236,6 @@ bool LoRaMultiHop::sendMessage(uint8_t * payload, uint8_t len, MsgType_t type){
         memcpy(pPtr, payload, len);
     }
 
-#ifdef DEBUG
-    Serial.println(F("RAW payload:"));
-    printBuffer(this->txBuf, len);
-    Serial.println();
-#endif
-
     // transmit
     txMessage(len + HEADER_SIZE);
 
@@ -394,28 +389,21 @@ bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
     uint8_t * pPtr = (this->txBuf);
     memcpy(pPtr, buf, len);
 
-    Serial.println(F("Append preset payload"));
-    Serial.print(F("Forwarded packet:"));
-    printBuffer(this->txBuf, len);
-    Serial.println();
-    // If a payload is waiting to be appended to incoming message: copy existing buffer after
-    // this payload to make room for this payload
-    if(!this->presetSent && this->presetLength + len < RH_RF95_MAX_MESSAGE_LEN){
-        Serial.print(F("Preset payload:"));
-        printBuffer(this->presetBuffer, this->presetLength);
-        Serial.println();
-
-        memcpy(pPtr+len, this->presetBuffer, this->presetLength);
-        len += this->presetLength;
-        this->presetSent = true;
+    if(buf[HEADER_TYPE_OFFSET] == DATA_ROUTED){
+        this->latency += PRESET_LATENCY_UP_STEP;
+        if(this->latency > PRESET_MAX_LATENCY) this->latency = PRESET_MAX_LATENCY;
+        Serial.print(F("Latency updated: "));
+        Serial.println(this->latency);
+        // If a payload is waiting to be appended to incoming message: copy existing buffer after
+        // this payload to make room for this payload
+        if(!this->presetSent && this->presetLength + len < RH_RF95_MAX_MESSAGE_LEN){
+            memcpy(pPtr+len, this->presetBuffer, this->presetLength);
+            len += this->presetLength;
+            this->presetSent = true;
+        }
     }
-
     // update header 
     this->updateHeader(buf, len);
-
-    Serial.print(F("Updated packet:"));
-    printBuffer(this->txBuf, len);
-    Serial.println();
 
     // schedule tx
     uint8_t backoff =  random(PREAMBLE_DURATION,3*PREAMBLE_DURATION);
@@ -480,9 +468,6 @@ Msg_UID_t LoRaMultiHop::getMsgUidFromBuffer(uint8_t * buf){
 }
 
 bool LoRaMultiHop::presetPayload(uint8_t * payload, uint8_t len){
-    Serial.print(F("Payload:"));
-    printBuffer(payload, len);
-    Serial.println();
     // Preset payload ready for sending; we'll wait for a message that needs to be
     // forwarded, so we can append this payload to that message
 
@@ -499,8 +484,9 @@ bool LoRaMultiHop::presetPayload(uint8_t * payload, uint8_t len){
         this->presetBuffer[this->presetLength + HEADER_EXTRA_PAYLOAD_LEN_OFFSET] = len;
         memcpy(this->presetBuffer+this->presetLength+HEADER_EXTRA_PAYLOAD_OFFSET, payload, len);
         this->presetLength += len + NODE_UID_SIZE + MESG_PAYLOAD_LEN_SIZE;
-
         // Keep presetSent and presetTime as previous
+
+    // New preset payload
     }else{
         // Copy message to buffer
         this->presetBuffer[HEADER_EXTRA_NODE_UID_OFFSET] =  (uint8_t)(this->uid >> 8);
@@ -508,13 +494,9 @@ bool LoRaMultiHop::presetPayload(uint8_t * payload, uint8_t len){
         this->presetBuffer[HEADER_EXTRA_PAYLOAD_LEN_OFFSET] = len;
         memcpy(this->presetBuffer+HEADER_EXTRA_PAYLOAD_OFFSET, payload, len);
         this->presetLength = len + NODE_UID_SIZE + MESG_PAYLOAD_LEN_SIZE;
-        
-        Serial.print(F("Payload preset:"));
-        printBuffer(this->presetBuffer, this->presetLength);
-        Serial.println();
 
         this->presetSent = false;
-        this->presetTime = DramcoUno.millisWithOffset() + random(PRESET_MAX_LATENCY - PRESET_MAX_LATENCY_RAND_WINDOW, PRESET_MAX_LATENCY + PRESET_MAX_LATENCY_RAND_WINDOW);
+        this->presetTime = DramcoUno.millisWithOffset() + random(this->latency - PRESET_MAX_LATENCY_RAND_WINDOW, this->latency + PRESET_MAX_LATENCY_RAND_WINDOW);
 
     }
     return true;
@@ -525,6 +507,12 @@ bool LoRaMultiHop::sendPresetPayload( void ){
         return true;
     }
     this->presetSent = true;
+    
+    if(this->latency-PRESET_MIN_LATENCY < PRESET_LATENCY_DOWN_STEP) this->latency = PRESET_MIN_LATENCY;
+    else this->latency -= PRESET_LATENCY_DOWN_STEP; 
+    Serial.print(F("Latency updated: "));
+    Serial.println(this->latency);
+
     // Send message, but let go of extra header
     return this->sendMessage(this->presetBuffer+HEADER_EXTRA_PAYLOAD_OFFSET, this->presetLength - NODE_UID_SIZE - MESG_PAYLOAD_LEN_SIZE, DATA_ROUTED);
 }
