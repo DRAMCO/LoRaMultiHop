@@ -5,9 +5,12 @@
 #include <RH_RF95.h>
 #include "CircBuffer.h"
 
-#define PREAMBLE_DURATION 200.0 // In ms
-#define PRESET_MAX_LATENCY 40000 // In ms
-#define PRESET_MAX_LATENCY_RAND_WINDOW 1000 // Random window around PRESET_MAX_LATENCY
+#define PREAMBLE_DURATION               200.0 // In ms
+#define PRESET_MIN_LATENCY              1000 // In ms
+#define PRESET_MAX_LATENCY              40000 // In ms
+#define PRESET_MAX_LATENCY_RAND_WINDOW  1000 // Random window around PRESET_MAX_LATENCY
+#define PRESET_LATENCY_UP_STEP          10000
+#define PRESET_LATENCY_DOWN_STEP        1000
 
 #define MAX_BUF_SIZE 16     // Max preset buffer size 
 
@@ -124,6 +127,7 @@ class LoRaMultiHop{
         uint8_t presetLength = 0;
         unsigned long presetTime;
         bool presetSent = true;
+        uint16_t latency;
 
         CircBuffer floodBuffer;
 };
