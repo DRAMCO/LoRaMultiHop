@@ -3,7 +3,7 @@
     "messages": [
         {
             "message_uid": "05C3",
-            "message_type": "C3",
+            "message_type": "03",
             "hops": "00",
             "destination_uid": "0000",
             "payload": {
@@ -23,7 +23,7 @@
         },
         {
             "message_uid": "F6CC",
-            "message_type": "CC",
+            "message_type": "03",
             "hops": "00",
             "destination_uid": "0000",
             "payload": {
@@ -43,7 +43,7 @@
         },
         {
             "message_uid": "45F3",
-            "message_type": "F3",
+            "message_type": "03",
             "hops": "00",
             "destination_uid": "0000",
             "payload": {
