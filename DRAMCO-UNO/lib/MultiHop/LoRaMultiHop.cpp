@@ -59,13 +59,17 @@ return false;
     Serial.print(F("Setting node UID: "));
 #endif
 
-    uint32_t r = rf95.random() * DramcoUno.random();
-    randomSeed(r);  
     if(this->type == GATEWAY){
         this->uid = GATEWAY_UID;
     }
     else{
+#ifdef NODE_UID
+        this->uid = NODE_UID;
+#else
+        uint32_t r = rf95.random() * DramcoUno.random();
+        randomSeed(r);  
         this->uid = (Node_UID_t) r;
+#endif
     }
 #ifdef DEBUG
     Serial.println(uid, HEX);
@@ -335,8 +339,11 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
         case DATA_ROUTED:{
             Serial.println(F(" = DATA ROUTED"));
             Node_UID_t sentTo = this->getNodeUidFromBuffer(buf, NEXT_NODE);
+            Node_UID_t sentFrom = this->getNodeUidFromBuffer(buf, SOURCE_NODE);
             Serial.print("To: 0x");
             Serial.println(sentTo, HEX);
+            Serial.print("From: 0x");
+            Serial.println(sentFrom, HEX);
             if(sentTo == this->uid){
                 Serial.println(F("Message sent to this node"));
                 if(sentTo == GATEWAY_UID){
@@ -475,6 +482,11 @@ bool LoRaMultiHop::presetPayload(uint8_t * payload, uint8_t len){
     if(len > RH_RF95_MAX_MESSAGE_LEN-HEADER_SIZE-NODE_UID_SIZE-MESG_PAYLOAD_LEN_SIZE){
         return false;
     }
+#ifdef DEBUG
+    Serial.print(F("Preset payload, will send after "));
+    Serial.print(this->latency);
+    Serial.println(F(" ms."));
+#endif
 
     // If there's already a new payload waiting to be sent, append it to that
     if(!this->presetSent && this->presetLength + len < RH_RF95_MAX_MESSAGE_LEN-HEADER_SIZE-NODE_UID_SIZE){
@@ -507,7 +519,8 @@ bool LoRaMultiHop::sendPresetPayload( void ){
         return true;
     }
     this->presetSent = true;
-    
+
+  
     if(this->latency-PRESET_MIN_LATENCY < PRESET_LATENCY_DOWN_STEP) this->latency = PRESET_MIN_LATENCY;
     else this->latency -= PRESET_LATENCY_DOWN_STEP; 
     Serial.print(F("Latency updated: "));

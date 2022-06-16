@@ -26,6 +26,8 @@ bool measureNow = false;
 uint8_t payloadBuf[RH_RF95_MAX_MESSAGE_LEN];
 uint8_t payloadLen = 0;
 
+uint16_t ctr = 0;
+
 unsigned long prevTT = 0;
 unsigned long prevMeasurement = 0;
 
@@ -144,7 +146,8 @@ void loop(){
 
     //uint16_t vy = DramcoUno.readAccelerationYInt();
     //uint16_t vz = DramcoUno.readAccelerationZInt();
-    uint16_t vt = DramcoUno.readTemperatureAccelerometerInt();
+    //uint16_t vt = DramcoUno.readTemperatureAccelerometerInt();
+    uint16_t vt = ctr++; // use counter instead
     //uint8_t vl = DramcoUno.readLuminosity();
 
     /*data[i++] = vx >> 8;

@@ -113,7 +113,7 @@ bool RH_RF95::init(bool startOver)
     // An innocuous ISM frequency, same as RF22's
  //   setFrequency(434.0);
     // Lowish power
- //   setTxPower(13);
+    //setTxPower(13);
 
     return true;
 }
