@@ -1,4 +1,6 @@
 # This is a sample Python script.
+import os
+
 import serial
 import json
 import io
@@ -47,6 +49,7 @@ def parse_line(line_str):
         print("Wrong payload length: " + payload_length)
         payload_data = []
         rest_of_line = []
+        payload_length_int = -1
 
     # dictionary to store all payloads from this message
     # we initialize using the first payload
@@ -104,6 +107,7 @@ def parse_rest(line_parts):
         print("Wrong payload length (in rest): " + payload_length)
         payload_data = []
         rest_of_line = []
+        payload_length_int = -1
 
     payload = {
         "source_uid": source_uid,
@@ -114,16 +118,10 @@ def parse_rest(line_parts):
     return payload, rest_of_line
 
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
+def run_logger(port_name):
     ser = serial.Serial()
     ser.baudrate = 115200
-    ser.port = port
-
-    # Test parsing of a packet
-    # line = "Packet: 45 7E 03 00 00 00 30 00 02 00 6B 20 00 01 55 12 34 03 10 20 FF\n"
-    # info = parse_line(line)
-    # print(str(info))
+    ser.port = port_name
 
     message_log = {
         "nr_of_messages": 0,
@@ -134,15 +132,15 @@ if __name__ == '__main__':
         ser.open()
 
         try:
-            while True:     # continuously read and parse lines
+            while True:  # continuously read and parse lines
                 line = ""
-                lineComplete = False
-                while not lineComplete:     # read characters until '\n' (and throw away any shit)
+                line_complete = False
+                while not line_complete:  # read characters until '\n' (and throw away any shit)
                     char = ser.read(1)
                     if not (char < b' '):
                         line += char.decode()
                     if char == b'\n':
-                        lineComplete = True
+                        line_complete = True
 
                 # check contents of the line and take action when necessary
                 if line.find('Packet: ') > -1:
@@ -172,5 +170,84 @@ if __name__ == '__main__':
         json_data = json.dumps(message_log, ensure_ascii=False, indent=4)
         json_file.write(json_data)
 
-    print('program end')
 
+def run_analysis(file_name):
+    if len(file_name) == 0:
+        f = []
+        for (_, _, filenames) in os.walk(os.getcwd()):
+            f.extend(filenames)
+            break
+
+        for f_n in f:
+            if not f_n.endswith('.json'):
+                f.remove(f_n)
+
+        file_name = f[-1]
+
+    print('Analysing ' + file_name)
+
+    analysed_data = {
+        "nr_of_nodes": 0,
+        "node_statistics": []
+    }
+
+    node_statistics_unsorted = []
+    try:
+        with open(file_name) as json_file:
+            data = json.load(json_file)
+            print("Total number of messages: " + str(data["nr_of_messages"]))
+
+            # first we look for all the different nodes we can find
+            for message in data["messages"]:
+                payload = message["payload"]
+                if payload["nr_of_payloads"] > 0:
+                    for single_payload in payload["payloads"]:
+                        node_uid = single_payload["source_uid"]
+                        node_uid_in_list = False
+                        for node_info in node_statistics_unsorted:
+                            if len(analysed_data) > 0:
+                                if node_info["node_uid"] == node_uid:
+                                    node_uid_in_list = True
+                                    break
+                        if not node_uid_in_list:
+                            node_statistics_unsorted.append({"node_uid": node_uid})
+
+            node_statistics_sorted = sorted(node_statistics_unsorted, key=lambda k: k["node_uid"])
+            analysed_data["node_statistics"] = node_statistics_sorted
+            analysed_data["nr_of_nodes"] = len(node_statistics_sorted)
+            print(analysed_data)
+
+    except ValueError as err:
+        print("Wrong json format?")
+
+
+# Press the green button in the gutter to run the script.
+if __name__ == '__main__':
+    valid_option = False
+
+    #run_analysis('')
+
+    while not valid_option:
+        ans = input("Analyze (A) or log (L): ")
+
+        if ans.upper() == 'A':
+            valid_option = True
+            print("Running analysis...")
+
+        if ans.upper() == 'L':
+            valid_option = True
+            print("Starting logger...")
+
+            prompt = "Specify port or enter for (" + port + "): "
+            ans = input(prompt)
+            if len(ans.rstrip()) == 0:
+                ans = port.upper()
+
+            run_logger(ans)
+
+    # Test parsing of a packet
+    # line = "Packet: 45 7E 03 00 00 00 30 00 02 00 6B 20 00 01 55 12 34 03 10 20 FF\n"
+    # info = parse_line(line)
+    # print(str(info))
+
+    print('program end')

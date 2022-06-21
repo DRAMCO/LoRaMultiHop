@@ -19,7 +19,7 @@
 #define PIN_MODEM_INT     2
 
 typedef uint16_t Msg_UID_t;
-typedef uint16_t Node_UID_t;
+typedef uint8_t Node_UID_t;
 typedef uint8_t Msg_Type_t;
 
 #define GATEWAY_UID                 0x0000
@@ -40,19 +40,17 @@ typedef uint8_t Msg_Type_t;
 
 
 #define HEADER_MESG_UID_OFFSET          0
-#define HEADER_TYPE_OFFSET              (HEADER_MESG_UID_OFFSET + MESG_UID_SIZE)
-#define HEADER_HOPS_OFFSET              (HEADER_TYPE_OFFSET + MESG_TYPE_SIZE)
-#define HEADER_NEXT_UID_OFFSET          (HEADER_HOPS_OFFSET + MESG_HOPS_SIZE)
-#define HEADER_PREVIOUS_UID_OFFSET      (HEADER_HOPS_OFFSET + MESG_HOPS_SIZE)
+#define HEADER_TYPE_OFFSET              (HEADER_MESG_UID_OFFSET + MESG_UID_SIZE)    // 0 + 2 = 2
+#define HEADER_HOPS_OFFSET              (HEADER_TYPE_OFFSET + MESG_TYPE_SIZE)       // 2 + 1 = 3
+#define HEADER_NEXT_UID_OFFSET          (HEADER_HOPS_OFFSET + MESG_HOPS_SIZE)       // 3 + 1 = 4
+#define HEADER_PREVIOUS_UID_OFFSET      (HEADER_HOPS_OFFSET + MESG_HOPS_SIZE)       // 3 + 1 = 4
 //#define HEADER_PREVIOUS_UID_OFFSET    (HEADER_NEXT_UID_OFFSET + MESG_TYPE_SIZE) // saves 2 bytes
-#define HEADER_NODE_UID_OFFSET          (HEADER_PREVIOUS_UID_OFFSET + NODE_UID_SIZE)
-#define HEADER_PAYLOAD_LEN_OFFSET       (HEADER_NODE_UID_OFFSET + NODE_UID_SIZE)
-#define HEADER_PAYLOAD_OFFSET           (HEADER_PAYLOAD_LEN_OFFSET + MESG_PAYLOAD_LEN_SIZE)
+#define HEADER_PAYLOAD_OFFSET           (HEADER_PREVIOUS_UID_OFFSET + NODE_UID_SIZE) // 4 + 1 = 5
 #define HEADER_SIZE                     HEADER_PAYLOAD_OFFSET
 
-#define HEADER_EXTRA_NODE_UID_OFFSET    0
-#define HEADER_EXTRA_PAYLOAD_LEN_OFFSET (HEADER_EXTRA_NODE_UID_OFFSET + NODE_UID_SIZE)
-#define HEADER_EXTRA_PAYLOAD_OFFSET     (HEADER_EXTRA_PAYLOAD_LEN_OFFSET + MESG_PAYLOAD_LEN_SIZE)
+#define PAYLOAD_NODE_UID_OFFSET         0
+#define PAYLOAD_LEN_OFFSET              (PAYLOAD_NODE_UID_OFFSET + NODE_UID_SIZE)
+#define PAYLOAD_DATA_OFFSET             (PAYLOAD_LEN_OFFSET + MESG_PAYLOAD_LEN_SIZE)
 
 typedef enum msgTypes{
     GATEWAY_BEACON = 0x01,
@@ -93,6 +91,7 @@ class LoRaMultiHop{
         void reconfigModem(void);
 
         bool presetPayload(uint8_t * payload, uint8_t len);
+        bool presetForwardPayload(uint8_t * payload, uint8_t len);
         bool sendPresetPayload( void );
         bool isPresetPayloadSent( void ){
             return presetSent;
@@ -123,8 +122,10 @@ class LoRaMultiHop{
 
         RouteToGatewayInfo_t shortestRoute;
 
-        uint8_t presetBuffer[MAX_BUF_SIZE];
+        uint8_t presetOwnData[MAX_BUF_SIZE];
+        uint8_t presetForwardedData[MAX_BUF_SIZE];
         uint8_t presetLength = 0;
+        uint8_t presetForwardedLength = 0;
         unsigned long presetTime;
         bool presetSent = true;
         uint16_t latency;

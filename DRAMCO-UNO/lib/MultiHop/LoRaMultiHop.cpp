@@ -181,10 +181,12 @@ bool LoRaMultiHop::sendMessage(String str, MsgType_t type){
     }
 
     // copy payload to tx Buffer
-    uint8_t * pPtr = (this->txBuf + HEADER_PAYLOAD_OFFSET);
+    uint8_t * pPtr = (this->txBuf + HEADER_SIZE + PAYLOAD_DATA_OFFSET);
     for(uint8_t i=0; i<pLen; i++){
         *pPtr++ = (uint8_t)str.charAt(i);
     }
+    this->txBuf[HEADER_SIZE+PAYLOAD_NODE_UID_OFFSET] = this->uid;
+    this->txBuf[HEADER_SIZE+PAYLOAD_LEN_OFFSET] = pLen;
 
     this->sendMessage(NULL, pLen, type);
 
@@ -202,29 +204,41 @@ bool LoRaMultiHop::sendMessage(uint8_t * payload, uint8_t len, MsgType_t type){
     // generate message uid
     MsgInfo_t mInfo;
     Msg_UID_t mUID = (uint16_t) random();
-    mInfo.nodeUid = this->uid;
-    mInfo.msgUid = mUID;
 
     // add message info to flood buffer
     floodBuffer.put(mInfo);
 
-    this->initHeader(mUID);
+    // build header
+    this->txBuf[HEADER_MESG_UID_OFFSET] = (uint8_t)(mUID >> 8);
+    this->txBuf[HEADER_MESG_UID_OFFSET+1] = (uint8_t)(mUID & 0x00FF);
     this->txBuf[HEADER_TYPE_OFFSET] = type;
-    this->txBuf[HEADER_PAYLOAD_LEN_OFFSET] = len;
+    this->txBuf[HEADER_HOPS_OFFSET] = 0;
 
     switch(type) {
         case GATEWAY_BEACON:{
-            this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(BROADCAST_UID >> 8);
-            this->txBuf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(BROADCAST_UID & 0x00FF);
-            this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = (uint8_t)(this->uid >> 8);
-            this->txBuf[HEADER_PREVIOUS_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
+            if(sizeof(Node_UID_t)>1){
+                this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(BROADCAST_UID >> 8);
+                this->txBuf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(BROADCAST_UID & 0x00FF);
+                this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = (uint8_t)(this->uid >> 8);
+                this->txBuf[HEADER_PREVIOUS_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
+            }
+            else{
+                this->txBuf[HEADER_NEXT_UID_OFFSET] = BROADCAST_UID;
+                this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = this->uid;
+            }
         } break;
 
         case DATA_ROUTED:{
-            this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = (uint8_t)(this->uid >> 8);
-            this->txBuf[HEADER_PREVIOUS_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
-            this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(this->shortestRoute.viaNode >> 8);
-            this->txBuf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(this->shortestRoute.viaNode & 0x00FF);
+            if(sizeof(Node_UID_t)>1){
+                this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = (uint8_t)(this->uid >> 8);
+                this->txBuf[HEADER_PREVIOUS_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
+                this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(this->shortestRoute.viaNode >> 8);
+                this->txBuf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(this->shortestRoute.viaNode & 0x00FF);
+            }
+            else{
+                this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = this->uid;
+                this->txBuf[HEADER_NEXT_UID_OFFSET] = this->shortestRoute.viaNode;
+            }
         } break;
 
         case DATA_BROADCAST:{
@@ -246,15 +260,6 @@ bool LoRaMultiHop::sendMessage(uint8_t * payload, uint8_t len, MsgType_t type){
     return true;
 }
 
-void LoRaMultiHop::initHeader(Msg_UID_t mUid){
-    // set hop count to 0
-    this->txBuf[HEADER_NODE_UID_OFFSET] = (uint8_t)(this->uid >> 8);
-    this->txBuf[HEADER_NODE_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
-    this->txBuf[HEADER_MESG_UID_OFFSET] = (uint8_t)(mUid >> 8);
-    this->txBuf[HEADER_MESG_UID_OFFSET+1] = (uint8_t)(mUid & 0x00FF);
-    
-    this->txBuf[HEADER_HOPS_OFFSET] = 0;
-} 
 
 void LoRaMultiHop::updateHeader(uint8_t * buf, uint8_t pLen){
     // set hop count to 0
@@ -392,23 +397,27 @@ bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
     // add message info to flood buffer
     this->floodBuffer.put(mInfo);
     
+    if(buf[HEADER_TYPE_OFFSET] == DATA_ROUTED){
+        // 1. update latency
+        this->latency += PRESET_LATENCY_UP_STEP;
+        if(this->latency > PRESET_MAX_LATENCY) this->latency = PRESET_MAX_LATENCY;
+#ifdef DEBUG
+        Serial.print(F("Latency updated: "));
+        Serial.println(this->latency);
+#endif
+        // 2. append payload to preset payload
+        uint8_t payloadLen = (len - HEADER_SIZE);
+        // isolate node_uid and other stuff
+        this->presetForwardPayload(buf+HEADER_PAYLOAD_OFFSET, payloadLen);
+
+        return true;
+    }
+
+    // in case of beacon or data broadcast
     // copy complete message to tx Buffer
     uint8_t * pPtr = (this->txBuf);
     memcpy(pPtr, buf, len);
-
-    if(buf[HEADER_TYPE_OFFSET] == DATA_ROUTED){
-        this->latency += PRESET_LATENCY_UP_STEP;
-        if(this->latency > PRESET_MAX_LATENCY) this->latency = PRESET_MAX_LATENCY;
-        Serial.print(F("Latency updated: "));
-        Serial.println(this->latency);
-        // If a payload is waiting to be appended to incoming message: copy existing buffer after
-        // this payload to make room for this payload
-        if(!this->presetSent && this->presetLength + len < RH_RF95_MAX_MESSAGE_LEN){
-            memcpy(pPtr+len, this->presetBuffer, this->presetLength);
-            len += this->presetLength;
-            this->presetSent = true;
-        }
-    }
+    
     // update header 
     this->updateHeader(buf, len);
 
@@ -454,32 +463,55 @@ void LoRaMultiHop::reconfigModem(void){
 }
 
 Node_UID_t LoRaMultiHop::getNodeUidFromBuffer(uint8_t * buf, NodeID_t which){
-    switch (which){
-        case NEXT_NODE: {
-            return (Node_UID_t)(buf[HEADER_NEXT_UID_OFFSET]<<8 | buf[HEADER_NEXT_UID_OFFSET+1]);
-        } break;
+    switch(sizeof(Node_UID_t)) {
+        case 1: {
+            switch (which){
+                case NEXT_NODE: {
+                    return (Node_UID_t)(buf[HEADER_NEXT_UID_OFFSET]);
+                } break;
 
-        case PREVIOUS_NODE: {
-            return (Node_UID_t)(buf[HEADER_PREVIOUS_UID_OFFSET]<<8 | buf[HEADER_PREVIOUS_UID_OFFSET+1]);
-        } break;
+                case PREVIOUS_NODE: {
+                    return (Node_UID_t)(buf[HEADER_PREVIOUS_UID_OFFSET]);
+                } break;
 
-        default: {
-            return (Node_UID_t)(buf[HEADER_NODE_UID_OFFSET]<<8 | buf[HEADER_NODE_UID_OFFSET+1]);
+                default: {
+                    return (Node_UID_t)(buf[HEADER_SIZE + PAYLOAD_NODE_UID_OFFSET]);
+                } break;
+            }
+        } break;
+        case 2: {
+            switch (which){
+                case NEXT_NODE: {
+                    return (Node_UID_t)(buf[HEADER_NEXT_UID_OFFSET]<<8 | buf[HEADER_NEXT_UID_OFFSET+1]);
+                } break;
+
+                case PREVIOUS_NODE: {
+                    return (Node_UID_t)(buf[HEADER_PREVIOUS_UID_OFFSET]<<8 | buf[HEADER_PREVIOUS_UID_OFFSET+1]);
+                } break;
+
+                default: {
+                    return (Node_UID_t)(buf[HEADER_SIZE + PAYLOAD_NODE_UID_OFFSET]<<8 | buf[HEADER_SIZE + PAYLOAD_NODE_UID_OFFSET + 1]);
+                } break;
+            }
+        } break;
+        default:{
+            return 0;
         } break;
     }
-    return 0x0000;
 }
 
 Msg_UID_t LoRaMultiHop::getMsgUidFromBuffer(uint8_t * buf){
     return (Msg_UID_t)(buf[HEADER_MESG_UID_OFFSET]<<8 | buf[HEADER_MESG_UID_OFFSET+1]);
 }
 
+/* Schedule a payload to be sent
+ */
 bool LoRaMultiHop::presetPayload(uint8_t * payload, uint8_t len){
     // Preset payload ready for sending; we'll wait for a message that needs to be
     // forwarded, so we can append this payload to that message
 
     // Check if forward payload does not exceed max length
-    if(len > RH_RF95_MAX_MESSAGE_LEN-HEADER_SIZE-NODE_UID_SIZE-MESG_PAYLOAD_LEN_SIZE){
+    if((len & 0x07) > RH_RF95_MAX_MESSAGE_LEN-HEADER_SIZE-NODE_UID_SIZE-MESG_PAYLOAD_LEN_SIZE){
         return false;
     }
 #ifdef DEBUG
@@ -488,29 +520,52 @@ bool LoRaMultiHop::presetPayload(uint8_t * payload, uint8_t len){
     Serial.println(F(" ms."));
 #endif
 
-    // If there's already a new payload waiting to be sent, append it to that
-    if(!this->presetSent && this->presetLength + len < RH_RF95_MAX_MESSAGE_LEN-HEADER_SIZE-NODE_UID_SIZE){
-        // Append to waiting payload, put new payload after existing payload
-        this->presetBuffer[this->presetLength + HEADER_EXTRA_NODE_UID_OFFSET] = (uint8_t)(this->uid >> 8);;
-        this->presetBuffer[this->presetLength + HEADER_EXTRA_NODE_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
-        this->presetBuffer[this->presetLength + HEADER_EXTRA_PAYLOAD_LEN_OFFSET] = len;
-        memcpy(this->presetBuffer+this->presetLength+HEADER_EXTRA_PAYLOAD_OFFSET, payload, len);
-        this->presetLength += len + NODE_UID_SIZE + MESG_PAYLOAD_LEN_SIZE;
-        // Keep presetSent and presetTime as previous
+    // Copy message to buffer
+    if(sizeof(Node_UID_t)>1){
+        this->presetOwnData[PAYLOAD_NODE_UID_OFFSET] =  (uint8_t)(this->uid >> 8);
+        this->presetOwnData[PAYLOAD_NODE_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
+    }
+    else{
+        this->presetOwnData[PAYLOAD_NODE_UID_OFFSET] =  this->uid >> 8;
+    }
+    this->presetOwnData[PAYLOAD_LEN_OFFSET] = (len & 0x07);
+    memcpy(this->presetOwnData+PAYLOAD_DATA_OFFSET, payload, len);
+    this->presetLength = len + NODE_UID_SIZE + MESG_PAYLOAD_LEN_SIZE;
 
-    // New preset payload
-    }else{
-        // Copy message to buffer
-        this->presetBuffer[HEADER_EXTRA_NODE_UID_OFFSET] =  (uint8_t)(this->uid >> 8);
-        this->presetBuffer[HEADER_EXTRA_NODE_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
-        this->presetBuffer[HEADER_EXTRA_PAYLOAD_LEN_OFFSET] = len;
-        memcpy(this->presetBuffer+HEADER_EXTRA_PAYLOAD_OFFSET, payload, len);
-        this->presetLength = len + NODE_UID_SIZE + MESG_PAYLOAD_LEN_SIZE;
-
+    // schedule transmission if needed
+    if(this->presetSent){ // start new window
         this->presetSent = false;
         this->presetTime = DramcoUno.millisWithOffset() + random(this->latency - PRESET_MAX_LATENCY_RAND_WINDOW, this->latency + PRESET_MAX_LATENCY_RAND_WINDOW);
-
     }
+    return true;
+}
+
+bool LoRaMultiHop::presetForwardPayload(uint8_t * payload, uint8_t len){
+    // Preset payload ready for sending; we'll wait for a message that needs to be
+    // forwarded, so we can append this payload to that message
+
+    // Check if forward payload does not exceed max length
+    if(len > RH_RF95_MAX_MESSAGE_LEN-HEADER_SIZE-NODE_UID_SIZE-MESG_PAYLOAD_LEN_SIZE){
+#ifdef DEBUG
+        Serial.println(F("Max. message length exceeded. Extra payload will be dropped."));
+#endif
+        return false;
+    }
+#ifdef DEBUG
+    Serial.print(F("Preset payload, will send after "));
+    Serial.print(this->latency);
+    Serial.println(F(" ms."));
+#endif
+
+    memcpy((this->presetForwardedData + this->presetForwardedLength), payload, len);
+    this->presetForwardedLength += len;
+
+    // schedule transmission if needed
+    if(this->presetSent){ // start new window
+        this->presetSent = false;
+        this->presetTime = DramcoUno.millisWithOffset() + random(this->latency - PRESET_MAX_LATENCY_RAND_WINDOW, this->latency + PRESET_MAX_LATENCY_RAND_WINDOW);
+    }
+
     return true;
 }
 
@@ -526,6 +581,32 @@ bool LoRaMultiHop::sendPresetPayload( void ){
     Serial.print(F("Latency updated: "));
     Serial.println(this->latency);
 
+    // create dummy payload if no preset data available
+    if(presetLength == 0){
+        if(sizeof(Node_UID_t)>1){
+            this->presetOwnData[PAYLOAD_NODE_UID_OFFSET] =  (uint8_t)(this->uid >> 8);
+            this->presetOwnData[PAYLOAD_NODE_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
+        }
+        else{
+            this->presetOwnData[PAYLOAD_NODE_UID_OFFSET] =  this->uid >> 8;
+        }
+        this->presetOwnData[PAYLOAD_LEN_OFFSET] = (uint8_t)(this->presetForwardedLength<<3);
+        this->presetLength = 2;
+    }
+    else{
+        this->presetOwnData[PAYLOAD_LEN_OFFSET] |= (uint8_t)(this->presetForwardedLength<<3);
+    }
+
+    // copy preset forward data to preset own data
+    memcpy((this->presetOwnData + this->presetLength), this->presetForwardedData, this->presetForwardedLength);
+    this->presetLength += this->presetForwardedLength;
+
     // Send message, but let go of extra header
-    return this->sendMessage(this->presetBuffer+HEADER_EXTRA_PAYLOAD_OFFSET, this->presetLength - NODE_UID_SIZE - MESG_PAYLOAD_LEN_SIZE, DATA_ROUTED);
+    bool rv = this->sendMessage(this->presetOwnData, this->presetLength, DATA_ROUTED);
+
+    // reset counters
+    this->presetLength = 0;
+    this->presetForwardedLength = 0;
+
+    return rv;
 }

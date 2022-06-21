@@ -1,0 +1,737 @@
+{
+    "nr_of_messages": 35,
+    "messages": [
+        {
+            "message_uid": "66D1",
+            "message_type": "03",
+            "hops": "01",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "6000",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "E2"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-143131"
+        },
+        {
+            "message_uid": "1DDC",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "2000",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "BE"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-143140"
+        },
+        {
+            "message_uid": "AAFC",
+            "message_type": "03",
+            "hops": "01",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "6000",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "E3"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-143220"
+        },
+        {
+            "message_uid": "EED8",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "0400",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "01"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-143352"
+        },
+        {
+            "message_uid": "AD26",
+            "message_type": "03",
+            "hops": "01",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "6000",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "E5"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-143356"
+        },
+        {
+            "message_uid": "5697",
+            "message_type": "03",
+            "hops": "01",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 2,
+                "payloads": [
+                    {
+                        "source_uid": "3000",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "48"
+                        ]
+                    },
+                    {
+                        "source_uid": "2000",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "C1"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-143402"
+        },
+        {
+            "message_uid": "C7C7",
+            "message_type": "03",
+            "hops": "02",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 2,
+                "payloads": [
+                    {
+                        "source_uid": "5000",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "01",
+                            "51"
+                        ]
+                    },
+                    {
+                        "source_uid": "4000",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "01",
+                            "42"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-143443"
+        },
+        {
+            "message_uid": "2117",
+            "message_type": "03",
+            "hops": "01",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "6000",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "E6"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-143444"
+        },
+        {
+            "message_uid": "9464",
+            "message_type": "03",
+            "hops": "01",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 2,
+                "payloads": [
+                    {
+                        "source_uid": "4000",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "01",
+                            "43"
+                        ]
+                    },
+                    {
+                        "source_uid": "2000",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "C2"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-143503"
+        },
+        {
+            "message_uid": "0F74",
+            "message_type": "03",
+            "hops": "02",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "5000",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "01",
+                            "52"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-143532"
+        },
+        {
+            "message_uid": "ECBF",
+            "message_type": "03",
+            "hops": "01",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "6000",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "E7"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-143533"
+        },
+        {
+            "message_uid": "B8E4",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "2000",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "C3"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-143546"
+        },
+        {
+            "message_uid": "2ECF",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "0400",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "01"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-143606"
+        },
+        {
+            "message_uid": "3BBA",
+            "message_type": "03",
+            "hops": "01",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 2,
+                "payloads": [
+                    {
+                        "source_uid": "6000",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "E8"
+                        ]
+                    },
+                    {
+                        "source_uid": "2000",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "C4"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-143623"
+        },
+        {
+            "message_uid": "2B7B",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "2000",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "C5"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-143712"
+        },
+        {
+            "message_uid": "C64F",
+            "message_type": "03",
+            "hops": "01",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "4000",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "01",
+                            "45"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-143731"
+        },
+        {
+            "message_uid": "4B9F",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "0400",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "02"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-143732"
+        },
+        {
+            "message_uid": "0C4B",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "0400",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "03"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-143819"
+        },
+        {
+            "message_uid": "72CC",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "0400",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "04"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-143907"
+        },
+        {
+            "message_uid": "97CD",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "0400",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "05"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-143954"
+        },
+        {
+            "message_uid": "06BD",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "0400",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "06"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-144041"
+        },
+        {
+            "message_uid": "1547",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "0400",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "07"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-144128"
+        },
+        {
+            "message_uid": "9FBF",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "0400",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "00"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-144334"
+        },
+        {
+            "message_uid": "4B09",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "0400",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "01"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-144421"
+        },
+        {
+            "message_uid": "9990",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "0400",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "02"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-144508"
+        },
+        {
+            "message_uid": "7D5C",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "0400",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "03"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-144555"
+        },
+        {
+            "message_uid": "DAA1",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "0400",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "04"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-144642"
+        },
+        {
+            "message_uid": "CD63",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "0400",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "05"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-144728"
+        },
+        {
+            "message_uid": "2073",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "0400",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "06"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-144816"
+        },
+        {
+            "message_uid": "A9C1",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "0400",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "07"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-144902"
+        },
+        {
+            "message_uid": "CBFE",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "0400",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "08"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-144947"
+        },
+        {
+            "message_uid": "DB87",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "0400",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "09"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-145035"
+        },
+        {
+            "message_uid": "4DAC",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "0400",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "0A"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-145123"
+        },
+        {
+            "message_uid": "5B30",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "0400",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "0B"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-145210"
+        },
+        {
+            "message_uid": "4BAD",
+            "message_type": "03",
+            "hops": "00",
+            "destination_uid": "0000",
+            "payload": {
+                "nr_of_payloads": 1,
+                "payloads": [
+                    {
+                        "source_uid": "0400",
+                        "payload_length": 2,
+                        "payload_data": [
+                            "00",
+                            "0C"
+                        ]
+                    }
+                ]
+            },
+            "timestamp": "20220621-145258"
+        }
+    ]
+}
