@@ -123,6 +123,12 @@ int8_t RHGenericDriver::lastRssi()
     return _lastRssi;
 }
 
+// Added by Guus Leenders
+int8_t RHGenericDriver::lastSnr()
+{
+    return _lastSnr;
+}
+
 RHGenericDriver::RHMode  RHGenericDriver::mode()
 {
     return _mode;

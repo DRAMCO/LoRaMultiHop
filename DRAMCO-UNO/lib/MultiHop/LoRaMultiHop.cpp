@@ -338,6 +338,11 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
             else{
                 Serial.println(F("Route not updated."));
             }
+            Serial.print(F("RSSI: "));
+            Serial.println(rf95.lastRssi());
+            Serial.print(F("SNR: "));
+            Serial.println(rf95.lastSnr());
+            
             this->forwardMessage(buf, len);
             return false; // no user callback
         } break;
@@ -366,6 +371,10 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
                 if(sentTo == GATEWAY_UID){
                     // end of the line -> user cb
                     Serial.println(F("Arrived at gateway -> user cb."));
+                    Serial.print(F("RSSI: "));
+                    Serial.println(rf95.lastRssi());
+                    Serial.print(F("SNR: "));
+                    Serial.println(rf95.lastSnr());
                     return true;
                 }
                 else{ // data needs to be forwarded

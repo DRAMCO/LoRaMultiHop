@@ -146,7 +146,8 @@ void RH_RF95::handleInterrupt()
 	// this is according to the doc, but is it really correct?
 	// weakest receiveable signals are reported RSSI at about -66
 	_lastRssi = spiRead(RH_RF95_REG_1A_PKT_RSSI_VALUE) - 137;
-
+    _lastSnr = spiRead(RH_RF95_REG_19_PKT_SNR_VALUE);
+    
 	// We have received a message.
 	validateRxBuf(); 
 	if (_rxBufValid)

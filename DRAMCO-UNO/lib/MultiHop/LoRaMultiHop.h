@@ -73,6 +73,8 @@ typedef struct routeInfo{
     Node_UID_t viaNode;
     uint8_t hopsToGateway;
     Msg_UID_t lastGatewayBeacon;
+    uint8_t lastRssi; 
+    uint8_t lastSnr; 
 } RouteToGatewayInfo_t;
 
 typedef void (*MsgReceivedCb)(uint8_t *, uint8_t);
