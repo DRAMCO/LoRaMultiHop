@@ -188,8 +188,8 @@ bool LoRaMultiHop::sendMessage(String str, MsgType_t type){
     this->txBuf[HEADER_SIZE+PAYLOAD_NODE_UID_OFFSET] = this->uid;
     this->txBuf[HEADER_SIZE+PAYLOAD_LEN_OFFSET] = pLen;
 
-    this->sendMessage(NULL, pLen, type);
-
+    this->sendMessage(NULL, pLen+MESG_PAYLOAD_LEN_SIZE+NODE_UID_SIZE, type);
+    
     return true;
 }
 
@@ -223,7 +223,7 @@ bool LoRaMultiHop::sendMessage(uint8_t * payload, uint8_t len, MsgType_t type){
                 this->txBuf[HEADER_PREVIOUS_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
             }
             else{
-                this->txBuf[HEADER_NEXT_UID_OFFSET] = BROADCAST_UID;
+                this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(BROADCAST_UID);
                 this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = this->uid;
             }
         } break;
@@ -268,16 +268,28 @@ void LoRaMultiHop::updateHeader(uint8_t * buf, uint8_t pLen){
     // The following if statement is only needed when HEADER_NEXT_UID_OFFSET == HEADER_PREVIOUS_UID_OFFSET
     // otherwise, the order of operations does not matter
     if(this->txBuf[HEADER_TYPE_OFFSET]==GATEWAY_BEACON){
-        this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(this->shortestRoute.viaNode >> 8);
-        this->txBuf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(this->shortestRoute.viaNode & 0x00FF);
-        this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = (uint8_t)(this->uid >> 8);
-        this->txBuf[HEADER_PREVIOUS_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
+        if(sizeof(Node_UID_t)>1){
+            this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(this->shortestRoute.viaNode >> 8);
+            this->txBuf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(this->shortestRoute.viaNode & 0x00FF);
+            this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = (uint8_t)(this->uid >> 8);
+            this->txBuf[HEADER_PREVIOUS_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
+        }
+        else{
+            this->txBuf[HEADER_NEXT_UID_OFFSET] = this->shortestRoute.viaNode;
+            this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = this->uid;
+        }
     }
     else{
-        this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = (uint8_t)(this->uid >> 8);
-        this->txBuf[HEADER_PREVIOUS_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
-        this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(this->shortestRoute.viaNode >> 8);
-        this->txBuf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(this->shortestRoute.viaNode & 0x00FF);
+        if(sizeof(Node_UID_t)>1){
+            this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = (uint8_t)(this->uid >> 8);
+            this->txBuf[HEADER_PREVIOUS_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
+            this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(this->shortestRoute.viaNode >> 8);
+            this->txBuf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(this->shortestRoute.viaNode & 0x00FF);
+        }
+        else{
+            this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = this->uid;
+            this->txBuf[HEADER_NEXT_UID_OFFSET] = this->shortestRoute.viaNode;
+        }
     }
 } 
 
@@ -526,7 +538,7 @@ bool LoRaMultiHop::presetPayload(uint8_t * payload, uint8_t len){
         this->presetOwnData[PAYLOAD_NODE_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
     }
     else{
-        this->presetOwnData[PAYLOAD_NODE_UID_OFFSET] =  this->uid >> 8;
+        this->presetOwnData[PAYLOAD_NODE_UID_OFFSET] =  this->uid;
     }
     this->presetOwnData[PAYLOAD_LEN_OFFSET] = (len & 0x07);
     memcpy(this->presetOwnData+PAYLOAD_DATA_OFFSET, payload, len);
@@ -588,7 +600,7 @@ bool LoRaMultiHop::sendPresetPayload( void ){
             this->presetOwnData[PAYLOAD_NODE_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
         }
         else{
-            this->presetOwnData[PAYLOAD_NODE_UID_OFFSET] =  this->uid >> 8;
+            this->presetOwnData[PAYLOAD_NODE_UID_OFFSET] =  this->uid;
         }
         this->presetOwnData[PAYLOAD_LEN_OFFSET] = (uint8_t)(this->presetForwardedLength<<3);
         this->presetLength = 2;
