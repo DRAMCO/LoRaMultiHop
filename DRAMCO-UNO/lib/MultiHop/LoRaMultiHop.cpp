@@ -319,16 +319,18 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
                 this->shortestRoute.lastGatewayBeacon = msgId;
                 this->shortestRoute.hopsToGateway = hops;
                 this->shortestRoute.viaNode = receivedFrom;
+                this->shortestRoute.lastSnr = rf95.lastSnr();
+                this->shortestRoute.lastRssi = rf95.lastRssi();
                 routeUpdated = true;
             }
             else{
                 bool adjustRoute = false;
-                // If new route hops is only 1 hop shorter than previous one, check snr
-                if(this->shortestRoute.hopsToGateway - hops == 1 && this->shortestRoute.lastSnr - rf95.lastSnr() > -10){
+                // If new route hops is only 1 hop shorter / longer than previous one, check snr
+                if(abs(this->shortestRoute.hopsToGateway - hops) == 1 && this->shortestRoute.lastSnr - rf95.lastSnr() >= -10){
                     adjustRoute = true; 
                 }
                 // If new route has the same hop count, look for the better snr value
-                else if(this->shortestRoute.hopsToGateway - hops == 0 && this->shortestRoute.lastSnr < - rf95.lastSnr()){
+                else if(this->shortestRoute.hopsToGateway == hops && this->shortestRoute.lastSnr < rf95.lastSnr()){
                     adjustRoute = true;
                 }
                 // If more than 1 hop difference, just look at the number of hops

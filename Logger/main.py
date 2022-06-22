@@ -84,16 +84,10 @@ def parse_payload(line_parts):
     own_data = line_parts[offset:(offset+own_data_length)]
     rest_of_data = line_parts[(offset+own_data_length):]
     if forwarded_data_length == 0:
-        print("own data:")
-        print(own_data)
-        print("rest of data")
-        print(rest_of_data)
         forwarded_data = []
         forwarded_payload = []
     else:
         forwarded_data = line_parts[(offset+own_data_length):]
-        print("forwarded payload:")
-        print(forwarded_data)
         forwarded_payload = parse_payload(forwarded_data)
     # extra check
     if not (len(forwarded_data) == forwarded_data_length):
@@ -108,6 +102,7 @@ def parse_payload(line_parts):
         }
     ]
 
+    # multiple forwarded payloads on a same distance
     if forwarded_data_length == 0 and len(rest_of_data) > 0:
         el = parse_payload(rest_of_data)
         for e in el:
@@ -129,6 +124,8 @@ def run_logger(port_name):
     try:
         ser.open()
 
+        last_rssi = 0
+        last_snr = 0
         try:
             while True:  # continuously read and parse lines
                 line = ""
@@ -140,6 +137,22 @@ def run_logger(port_name):
                     if char == b'\n':
                         line_complete = True
 
+                if line.find('RSSI: ') > -1:
+                    line_parts = line.split(' ')
+                    try:
+                        last_rssi = int(line_parts[1])
+                    except ValueError:
+                        last_rssi = 0
+                        print("ERROR: could not convert RSSI to an integer")
+
+                if line.find('SNR: ') > -1:
+                    line_parts = line.split(' ')
+                    try:
+                        last_snr = int(line_parts[1])
+                    except ValueError:
+                        last_snr = 0
+                        print("ERROR: could not convert SNR to an integer")
+
                 # check contents of the line and take action when necessary
                 if line.find('Packet: ') > -1:
                     print("Parsing line:")
@@ -147,6 +160,8 @@ def run_logger(port_name):
 
                     # parse line containing message to json format
                     message_info = parse_line(line)
+                    message_info['rssi'] = last_rssi
+                    message_info['snr'] = last_snr
                     print(message_info)
 
                     # add message_info to list // TODO: do we have enough RAM?
@@ -171,15 +186,16 @@ def run_logger(port_name):
 
 
 def get_uids_from_payload(payload_data):
-    uid = [payload_data["source_uid"]]
-    fwp = payload_data["forwarded_payload"]
-    if len(fwp) == 0:
-        return uid
-    else:
-        uids = get_uids_from_payload(fwp)
-        for u in uids:
-            uid.append(u)
-        return uid
+    uid = []
+    for single_payload in payload_data:
+        uid.append(single_payload["source_uid"])
+        fwp = single_payload["forwarded_payload"]
+        if len(fwp) > 0:
+            uids = get_uids_from_payload(fwp)
+            for u in uids:
+                uid.append(u)
+
+    return uid
 
 
 def run_analysis(file_name):
@@ -237,28 +253,28 @@ def run_analysis(file_name):
 if __name__ == '__main__':
     valid_option = False
 
-    # while not valid_option:
-    #     ans = input("Analyze (A) or log (L): ")
-    #
-    #     if ans.upper() == 'A':
-    #         valid_option = True
-    #         run_analysis('')
-    #         print("Running analysis...")
-    #
-    #     if ans.upper() == 'L':
-    #         valid_option = True
-    #         print("Starting logger...")
-    #
-    #         prompt = "Specify port or enter for (" + port + "): "
-    #         ans = input(prompt)
-    #         if len(ans.rstrip()) == 0:
-    #             ans = port.upper()
-    #
-    #         run_logger(ans)
+    while not valid_option:
+        ans = input("Analyze (A) or log (L): ")
+
+        if ans.upper() == 'A':
+            valid_option = True
+            run_analysis('')
+            print("Running analysis...")
+
+        if ans.upper() == 'L':
+            valid_option = True
+            print("Starting logger...")
+
+            prompt = "Specify port or enter for (" + port + "): "
+            ans = input(prompt)
+            if len(ans.rstrip()) == 0:
+                ans = port.upper()
+
+            run_logger(ans)
 
     # Test parsing of a packet
-    line = "Packet: F7 A0 03 00 00 10 62 00 50 50 02 00 1B 20 02 00 55 D0 02 00 09 "
-    info = parse_line(line)
-    print(str(info))
+    # line = "Packet: F7 A0 03 00 00 10 62 00 50 50 02 00 1B 20 02 00 55 D0 02 00 09 "
+    # info = parse_line(line)
+    # print(str(info))
 
     print('program end')
