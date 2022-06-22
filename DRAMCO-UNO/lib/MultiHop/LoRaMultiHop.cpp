@@ -75,6 +75,8 @@ return false;
     Serial.println(uid, HEX);
 #endif
 
+    this->shortestRoute.lastSnr = -128;
+
     return true;
 }
 
@@ -320,10 +322,26 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
                 routeUpdated = true;
             }
             else{
-                if(hops < this->shortestRoute.hopsToGateway){
+                bool adjustRoute = false;
+                // If new route hops is only 1 hop shorter than previous one, check snr
+                if(this->shortestRoute.hopsToGateway - hops == 1 && this->shortestRoute.lastSnr - rf95.lastSnr() > -10){
+                    adjustRoute = true; 
+                }
+                // If new route has the same hop count, look for the better snr value
+                else if(this->shortestRoute.hopsToGateway - hops == 0 && this->shortestRoute.lastSnr < - rf95.lastSnr()){
+                    adjustRoute = true;
+                }
+                // If more than 1 hop difference, just look at the number of hops
+                else if(this->shortestRoute.hopsToGateway > hops){
+                    adjustRoute = true; 
+                }
+
+                if(adjustRoute){
                     // we've found a faster route
                     this->shortestRoute.hopsToGateway = hops;
                     this->shortestRoute.viaNode = receivedFrom;
+                    this->shortestRoute.lastSnr = rf95.lastSnr();
+                    this->shortestRoute.lastRssi = rf95.lastRssi();
                     routeUpdated = true;
                 }
             }
