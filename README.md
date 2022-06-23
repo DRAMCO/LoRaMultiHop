@@ -12,9 +12,9 @@ When multiple beacons are received on a node, only the best beacon message is sa
 
 When this process is complete, all sensor nodes should have saved a `node_uid`, which states the most direct connection to the gateway. This process should be repeated every so often, to assure network stability. 
 
-| 0        | 2    | 3    | 4                       | 5        | 6    | 7+   |
-| -------- |----- | ---- | ----------------------- | -------- | ---- | ---- |
-| MESG_UID | TYPE | HOPS | NEXT_UID = PREVIOUS_UID | NODE_UID | LEN  | DATA |
+| 0        | 2    | 3    | 4   | 5   | 6    | 7+   |
+| -------- |----- | ---- | ----| ----| ---- | ---- |
+| MESG_UID | TYPE | HOPS | SRC | DST | LEN  | DATA |
 
 ### Routed messages
 Routed messages find their way through the gateway by using the proposed routing protocol. Each sensor node will forward packages, if the packages have not been received yet and if the `next_uid` matches its own `node_uid`. To improve energy efficiency, each sensor node will wait for a predefined time: appending extra incoming (own/forwarded) data to be appended to the to-forward-message. 
