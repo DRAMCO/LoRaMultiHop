@@ -16,16 +16,37 @@ When this process is complete, all sensor nodes should have saved a `node_uid`, 
 | MESG_UID | TYPE | HOPS | NEXT_UID = PREVIOUS_UID | NODE_UID | LEN  | DATA |
 
 ### Routed messages
+Routed messages find their way through the gateway by using the proposed routing protocol. Each sensor node will forward packages, if the packages have not been received yet and if the `next_uid` matches its own `node_uid`. To improve energy efficiency, each sensor node will wait for a predefined time: appending extra incoming (own/forwarded) data to be appended to the to-forward-message. 
+
+**When to transmit** A node will start its procedure to transmit a message on 2 occasions: (1) timer, own sensor data is ready or (2) incoming data to be forwarded. Either way, the node will wait for a predefined time for other packages to come in: between `PRESET_MAX_LATENCY` and `PRESET_MIN_LATENCY`. 
+```
+    START                             START+PRESET_XX_LATENCY
+------|----------------------------------------|------------->
+                possible incoming 
+			    messages to append
+```
+
+The `PRESET_XX_LATENCY` is calculated based on both random values and a history of sending or forwarding data. When the node does not receive a lot of to-forward-messages, the `PRESET_XX_LATENCY` will evolve towards `PRESET_MIN_LATENCY`, otherwise (lots of to-forwarded-messages) towards `PRESET_MIN_LATENCY`. The step up/down is defined by `PRESET_LATENCY_UP_STEP`/`PRESET_LATENCY_DOWN_STEP`. This latency is also randomized in a window of +/- `PRESET_MAX_LATENCY_RAND_WINDOW`.
+
+**Message format**
+Messages that need forwarding, and arrive inside the latency window, will be encapsulated inside the message that was waiting to be send. 
+
+
+| 0        | 2    | 3    | 4                       | 5        | 6                                              | 7         | 9               |
+| -------- |----- | ---- | ----------------------- | -------- | -----------------------------------------------| --------- | --------------- |
+| MESG_UID | TYPE | HOPS | NEXT_UID = PREVIOUS_UID | NODE_UID | LEN = 4 bit own length, 5bit forwarded length  | OWN DATA  | FORWARDED  <table><thead><tr><th>9</th><th>10</th><th>11</th></tr></thead><tbody><tr><td>NODE_UID</td><td>LEN</td><td>DATA</td></tr></tbody></table>  |
+
 
 
 ### Power consumption analysis
 | 0        | Current    | Duration    | Remark    |
 | -------- |----------- | ----------- | --------- |
 | Sleep    | 5.11uA 		| - 		  |  |
-| CAD wake    | 19mA 		| 5ms 		  |  |
-| CAD stabilize    | 3.42mA 		| 30ms, CAD_STABILIZE 		  | Note: can be shorter? |
-| CAD perform    | 15mA 		| 12.6ms 		  |  |
+| Wake & Stabilize    | 3.42mA 		| 31ms, 1+CAD_STABILIZE 		  | Note: can be shorter? |
+| CAD perform    | 18.7mA 		| 7.64ms 		  |  |
+| CAD processing    | 15.2mA 		| 5ms 		  |  |
 | RX    | 29.8mA 		| - 		  |  |
 | TX    | 62.9mA 		| - 		  |  |
+| Message processing    | 14.6mA 		| 5.56ms 		  |  |
 
 ![Current profile](https://github.com/DRAMCO/LoRaMultiHop/blob/main/Measurements/current.png?raw=true "Current profile")
