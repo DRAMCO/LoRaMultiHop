@@ -34,7 +34,7 @@ Messages that need forwarding, and arrive inside the latency window, will be enc
 
 | 0        | 2    | 3    | 4                       | 5        | 6                                              | 7         | 9               |
 | -------- |----- | ---- | ----------------------- | -------- | -----------------------------------------------| --------- | --------------- |
-| MESG_UID | TYPE | HOPS | NEXT_UID = PREVIOUS_UID | NODE_UID | LEN = 4 bit own length, 5bit forwarded length  | OWN DATA  | FORWARDED  <table><thead><tr><th>9</th><th>10</th><th>11</th></tr></thead><tbody><tr><td>NODE_UID</td><td>LEN</td><td>DATA</td></tr></tbody></table>  |
+| MESG_UID | TYPE | HOPS | NEXT_UID = PREVIOUS_UID | NODE_UID | LEN = 4 bit own length, 5bit forwarded length  | OWN DATA  | FORWARDED  <table><thead><tr><th>9</th><th>10</th><th>11</th></tr></thead><tbody><tr><td>NODE_UID</td><td>LEN</td><td>DATA<table><thead><tr><th>9</th><th>10</th><th>11</th></tr></thead><tbody><tr><td>NODE_UID</td><td>LEN</td><td>...</td></tr></tbody></table></td></tr></tbody></table>  |
 
 
 
