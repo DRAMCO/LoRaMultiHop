@@ -5,6 +5,8 @@
 #include <RH_RF95.h>
 #include "CircBuffer.h"
 
+#define CAD_STABILIZE                   30 // In ms
+
 #define PREAMBLE_DURATION               200.0 // In ms
 #define PRESET_MIN_LATENCY              50000 // In ms
 #define PRESET_MAX_LATENCY              60000 // In ms

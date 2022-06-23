@@ -49,9 +49,8 @@ void DramcoUnoClass::begin(){
     pinMode(DRAMCO_UNO_ACCELEROMTER_INT_PIN, INPUT);
     digitalWrite(DRAMCO_UNO_ACCELEROMTER_INT_PIN, HIGH);
 
-    pinMode(DRAMCO_UNO_BUTTON_INT_PIN, INPUT);
-    digitalWrite(DRAMCO_UNO_BUTTON_INT_PIN, HIGH);
-
+    pinMode(DRAMCO_UNO_BUTTON_INT_PIN, INPUT_PULLUP);
+    
     pinMode(DRAMCO_UNO_SOIL_PIN_EN, OUTPUT);
     digitalWrite(DRAMCO_UNO_SOIL_PIN_EN, LOW);
 }
@@ -452,11 +451,14 @@ ISR (PCINT0_vect){ // handle pin change interrupt for D8 to D13 here
             _accelerometerIntEnabled = false;
         }
     }
+#if HARDWARE_VERSION < 2
     if(_buttonIntEnabled){
         if (!(DRAMCO_UNO_BUTTON_INT_PORT & _BV(DRAMCO_UNO_BUTTON_INT_NAME))){ // If pin 10 is low
-            delay(50);
+            delay(DRAMCO_UNO_BUTTON_DEBOUNCE_DELAY);
             if (!(DRAMCO_UNO_BUTTON_INT_PORT & _BV(DRAMCO_UNO_BUTTON_INT_NAME))){ // Debounce
+#ifdef DEBUG_LED
                 DramcoUnoClass::blink();
+#endif
                 _interruptHappened = true;
                 pciDeinit();
                 _millisInDeepSleep = -1; // Stop WDT sleep
@@ -464,8 +466,27 @@ ISR (PCINT0_vect){ // handle pin change interrupt for D8 to D13 here
             }
         }
     }
-    
+#endif 
 }
+
+#if HARDWARE_VERSION >= 2
+ISR (PCINT2_vect){ // handle pin change interrupt for D0 to D7 here  
+    if(_buttonIntEnabled){
+        if (!(DRAMCO_UNO_BUTTON_INT_PORT & _BV(DRAMCO_UNO_BUTTON_INT_NAME))){ // If pin 4 is low
+            delay(DRAMCO_UNO_BUTTON_DEBOUNCE_DELAY);
+            if (!(DRAMCO_UNO_BUTTON_INT_PORT & _BV(DRAMCO_UNO_BUTTON_INT_NAME))){ // Debounce
+#ifdef DEBUG_LED
+                DramcoUnoClass::blink();
+#endif
+                _interruptHappened = true;
+                pciDeinit();
+                _millisInDeepSleep = -1; // Stop WDT sleep
+                _buttonIntEnabled = false;
+            }
+        }
+    }
+}
+#endif
 
 void (*resetptr)( void ) = 0x0000;
 

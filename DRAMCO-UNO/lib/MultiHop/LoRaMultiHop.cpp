@@ -90,7 +90,7 @@ void LoRaMultiHop::loop(void){
 #endif
 
     DramcoUno.sleep(random(10,PREAMBLE_DURATION-45), DRAMCO_UNO_3V3_DISABLE); // First sleep with 3v3 off
-    DramcoUno.sleep(30, DRAMCO_UNO_3V3_ACTIVE); // Let 3v3 get stabilised
+    DramcoUno.sleep(CAD_STABILIZE, DRAMCO_UNO_3V3_ACTIVE); // Let 3v3 get stabilised
     rf95.init(false);
     this->reconfigModem();
 
