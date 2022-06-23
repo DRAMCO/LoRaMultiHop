@@ -23,7 +23,7 @@ Routed messages find their way through the gateway by using the proposed routing
     START                             START+PRESET_XX_LATENCY
 ------|----------------------------------------|------------->
                 possible incoming 
-			    messages to append
+                messages to append
 ```
 
 The `PRESET_XX_LATENCY` is calculated based on both random values and a history of sending or forwarding data. When the node does not receive a lot of to-forward-messages, the `PRESET_XX_LATENCY` will evolve towards `PRESET_MIN_LATENCY`, otherwise (lots of to-forwarded-messages) towards `PRESET_MIN_LATENCY`. The step up/down is defined by `PRESET_LATENCY_UP_STEP`/`PRESET_LATENCY_DOWN_STEP`. This latency is also randomized in a window of +/- `PRESET_MAX_LATENCY_RAND_WINDOW`.
@@ -34,7 +34,7 @@ Messages that need forwarding, and arrive inside the latency window, will be enc
 
 | 0        | 2    | 3    | 4                       | 5        | 6                                              | 7         | 9               |
 | -------- |----- | ---- | ----------------------- | -------- | -----------------------------------------------| --------- | --------------- |
-| MESG_UID | TYPE | HOPS | NEXT_UID = PREVIOUS_UID | NODE_UID | LEN = 4 bit own length, 5bit forwarded length  | OWN DATA  | FORWARDED  <table><thead><tr><th>9</th><th>10</th><th>11</th></tr></thead><tbody><tr><td>NODE_UID</td><td>LEN</td><td>DATA<table><thead><tr><th>9</th><th>10</th><th>11</th></tr></thead><tbody><tr><td>NODE_UID</td><td>LEN</td><td>...</td></tr></tbody></table></td></tr></tbody></table>  |
+| MESG_UID | TYPE | HOPS | NEXT_UID = PREVIOUS_UID | NODE_UID | LEN = 4 bit own length, 5bit forwarded length  | OWN DATA  | FORWARDED  <table><thead><tr><th>9</th><th>10</th><th>11</th><th>12</th></tr></thead><tbody><tr><td>NODE_UID</td><td>LEN</td><td>OWN DATA</td><td>FORWARDED<table><thead><tr><th>11</th><th>12</th><th>13</th><th>14</th></tr></thead><tbody><tr><td>NODE_UID</td><td>LEN</td><td>OWN</td><td>FORWARDED</td></tr></tbody></table></td></tr></tbody></table>  |
 
 
 
