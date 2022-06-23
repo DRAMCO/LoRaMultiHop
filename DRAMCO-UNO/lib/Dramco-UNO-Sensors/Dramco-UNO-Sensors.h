@@ -11,9 +11,15 @@
 #include "Wire.h"
 #include "LIS2DW12.h"
 
+#if HARDWARE_VERSION >= 2
+#define DRAMCO_UNO_LED_NAME 					  10
+#define DRAMCO_UNO_LED_PORT 					  PORTB
+#define DRAMCO_UNO_LED_PIN 						  2
+#else
 #define DRAMCO_UNO_LED_NAME 					  4
 #define DRAMCO_UNO_LED_PORT 					  PORTD
 #define DRAMCO_UNO_LED_PIN 						  4
+#endif
 
 #define DRAMCO_UNO_BLINK_ON 					  100 // Time on in ms
 
@@ -46,11 +52,21 @@
 #define DRAMCO_UNO_ACCELEROMTER_INT_NAME 		   PINB1
 #define DRAMCO_UNO_ACCELEROMTER_INT_PORT 		   PINB
 
+#if HARDWARE_VERSION >= 2
+#define DRAMCO_UNO_BUTTON_INT_PIN 				   4
+#define DRAMCO_UNO_BUTTON_INT_NAME 				   PIND4
+#define DRAMCO_UNO_BUTTON_INT_PORT 				   PIND
+#else
 #define DRAMCO_UNO_BUTTON_INT_PIN 				   10
 #define DRAMCO_UNO_BUTTON_INT_NAME 				   PINB2
 #define DRAMCO_UNO_BUTTON_INT_PORT 				   PINB
+#endif
 
+#if HARDWARE_VERSION >=2
+#define DRAMCO_UNO_SOIL_PIN_EN 					   DRAMCO_UNO_LED_NAME
+#else
 #define DRAMCO_UNO_SOIL_PIN_EN 					   A3
+#endif
 #define DRAMCO_UNO_SOIL_PIN_ANALOG 				   A2
 #define DRAMCO_UNO_SOIL_DIVIDER 				   20.0 // 2000 = max value *100 (percent)
 

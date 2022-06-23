@@ -12,6 +12,12 @@
 #define PRESET_LATENCY_UP_STEP          10000
 #define PRESET_LATENCY_DOWN_STEP        0
 
+#define FORWARD_BACKOFF_MIN             PREAMBLE_DURATION       // Backoff before forward
+#define FORWARD_BACKOFF_MAX             3*PREAMBLE_DURATION
+
+#define TX_BACKOFF_MIN                  PREAMBLE_DURATION       // Backoff if CAD detected when wanting to send
+#define TX_BACKOFF_MAX                  3*PREAMBLE_DURATION
+
 #define MAX_BUF_SIZE 16     // Max preset buffer size 
 
 #define PIN_ENABLE_3V3    8

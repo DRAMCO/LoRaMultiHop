@@ -135,7 +135,11 @@ void LoRaMultiHop::loop(void){
             //Serial.println(F("Message receive failed"));
 #endif
         }
-        this->txTime += random(150,300); // If CAD detected, add 150-300ms to pending schedule time of next message
+        if(this->txPending){
+            if(DramcoUno.millisWithOffset() > this->txTime-TX_BACKOFF_MAX){
+                this->txTime += random(TX_BACKOFF_MIN,TX_BACKOFF_MAX); // If CAD detected, add 150-300ms to pending schedule time of next message
+            }
+        }
     }
     else{
         // handle any pending tx

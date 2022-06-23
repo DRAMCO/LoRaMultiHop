@@ -17,7 +17,7 @@
 #define DRAMCO_UNO_LPP_ACCELEROMETER_MULT   1000
 #define DRAMCO_UNO_LPP_PERCENTAGE_MULT      1
 
-#define TOGGLE_TIME                         600000 // 10 min
+#define BEACON_INTERVAL                         600000 // 10 min
 #define MEASURE_INTERVAL                    60000 // 1 min
 
 bool newMsg = false;
@@ -103,7 +103,7 @@ DramcoUno.interruptOnButtonPress();
   Serial.println(F("Setup complete."));
   Serial.println(F("Press the button to send a message."));
 #endif
-  prevTT = DramcoUno.millisWithOffset() + TOGGLE_TIME;
+  prevTT = DramcoUno.millisWithOffset() + BEACON_INTERVAL;
 }
 
 void loop(){
@@ -112,8 +112,8 @@ void loop(){
   // --------------- COMPILE FOR GATEWAY ----------------
 #ifdef COMPILE_FOR_GATEWAY
   bool autoToggle = false;
-#ifdef TOGGLE_TIME
-  if((DramcoUno.millisWithOffset() - prevTT) > TOGGLE_TIME){
+#ifdef BEACON_INTERVAL
+  if((DramcoUno.millisWithOffset() - prevTT) > BEACON_INTERVAL){
     prevTT = DramcoUno.millisWithOffset();
     autoToggle = true;
   }
