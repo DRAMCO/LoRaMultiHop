@@ -5,9 +5,12 @@
 #include <RH_RF95.h>
 #include "CircBuffer.h"
 
-#define CAD_STABILIZE                   30 // In ms
-
 #define PREAMBLE_DURATION               200.0 // In ms
+
+#define CAD_STABILIZE                   30 // In ms
+#define CAD_DELAY_MIN                   PREAMBLE_DURATION/2
+#define CAD_DELAY_MAX                    PREAMBLE_DURATION-45
+
 #define PRESET_MIN_LATENCY              50000 // In ms
 #define PRESET_MAX_LATENCY              60000 // In ms
 #define PRESET_MAX_LATENCY_RAND_WINDOW  1000 // Random window around PRESET_MAX_LATENCY
