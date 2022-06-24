@@ -142,24 +142,29 @@ void LoRaMultiHop::loop(void){
         }
         // Reschedule TX and PresetSend to allow for backoff 
         // This is TX: just for breacon and broadcast
-        if(this->txPending && DramcoUno.millisWithOffset() > this->txTime-TX_BACKOFF_MAX){
-            this->txTime += random(TX_BACKOFF_MIN,TX_BACKOFF_MAX); // If CAD detected, add 150-300ms to pending schedule time of next message
+        unsigned long now = DramcoUno.millisWithOffset();
+        if(this->txPending && (now > this->txTime-TX_BACKOFF_MAX)){
+            this->txTime = now + random(TX_BACKOFF_MIN,TX_BACKOFF_MAX); // If CAD detected, add 150-300ms to pending schedule time of next message
         }
         // This is presetSend: only for routed/appended algorithm
-        if(!this->presetSent && DramcoUno.millisWithOffset() > this->presetTime-TX_BACKOFF_MAX){
-           this->presetTime += random(TX_BACKOFF_MIN,TX_BACKOFF_MAX); // If CAD detected, add 150-300ms to pending schedule time of next message
+        if(!this->presetSent && (now > this->presetTime-TX_BACKOFF_MAX)){
+           this->presetTime = now + random(TX_BACKOFF_MIN,TX_BACKOFF_MAX); // If CAD detected, add 150-300ms to pending schedule time of next message
         }
     }
     else{
         // handle any pending tx (beacon or broadcast)
-        if(this->txPending && DramcoUno.millisWithOffset() > this->txTime){
+        unsigned long now = DramcoUno.millisWithOffset();
+        if(this->txPending && (now > this->txTime)){
             this->txMessage(txLen);
             lateForCad = true; 
+            this->presetTime = now + random(TX_BACKOFF_MIN,TX_BACKOFF_MAX);
         }
-        // handle any preset payload (routed/appended algorithm)
-        if(!this->presetSent && DramcoUno.millisWithOffset() > this->presetTime){
-            this->sendPresetPayload();
-            lateForCad = true; 
+        else{
+           // handle any preset payload (routed/appended algorithm)
+            if(!this->presetSent && (now > this->presetTime)){
+                this->sendPresetPayload();
+                lateForCad = true; 
+            }
         }
         rf95.sleep();
     }
@@ -339,17 +344,19 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
             }
             else{
                 bool adjustRoute = false;
-                // If new route hops is only 1 hop shorter / longer than previous one, check snr
-                if(abs(this->shortestRoute.hopsToGateway - hops) == 1 && this->shortestRoute.lastSnr - rf95.lastSnr() >= -10){
-                    adjustRoute = true; 
-                }
                 // If new route has the same hop count, look for the better snr value
-                else if(this->shortestRoute.hopsToGateway == hops && this->shortestRoute.lastSnr < rf95.lastSnr()){
+                if(this->shortestRoute.hopsToGateway == hops && (this->shortestRoute.lastSnr < rf95.lastSnr())){
                     adjustRoute = true;
+#ifdef DEBUG
+                    Serial.println(F("Detected: same hop count but better SNR."));
+#endif
                 }
-                // If more than 1 hop difference, just look at the number of hops
-                else if(this->shortestRoute.hopsToGateway > hops){
-                    adjustRoute = true; 
+                // If we are at least 1 hop closer, just look at the number of hops
+                if(this->shortestRoute.hopsToGateway > (hops)){
+                    adjustRoute = true;
+#ifdef DEBUG
+                    Serial.println(F("Detected: at least 1 hop less."));
+#endif
                 }
 
                 if(adjustRoute){
