@@ -140,26 +140,30 @@ void LoRaMultiHop::loop(void){
             //Serial.println(F("Message receive failed"));
 #endif
         }
-        if(this->txPending){
-            if(DramcoUno.millisWithOffset() > this->txTime-TX_BACKOFF_MAX){
-                this->txTime += random(TX_BACKOFF_MIN,TX_BACKOFF_MAX); // If CAD detected, add 150-300ms to pending schedule time of next message
-            }
+        // Reschedule TX and PresetSend to allow for backoff 
+        // This is TX: just for breacon and broadcast
+        if(this->txPending && DramcoUno.millisWithOffset() > this->txTime-TX_BACKOFF_MAX){
+            this->txTime += random(TX_BACKOFF_MIN,TX_BACKOFF_MAX); // If CAD detected, add 150-300ms to pending schedule time of next message
+        }
+        // This is presetSend: only for routed/appended algorithm
+        if(!this->presetSent && DramcoUno.millisWithOffset() > this->presetTime-TX_BACKOFF_MAX){
+           this->presetTime += random(TX_BACKOFF_MIN,TX_BACKOFF_MAX); // If CAD detected, add 150-300ms to pending schedule time of next message
         }
     }
     else{
-        // handle any pending tx
-        if(this->txPending){
-            if(DramcoUno.millisWithOffset() > this->txTime){
-                this->txMessage(txLen);
-                lateForCad = true; 
-            }
+        // handle any pending tx (beacon or broadcast)
+        if(this->txPending && DramcoUno.millisWithOffset() > this->txTime){
+            this->txMessage(txLen);
+            lateForCad = true; 
         }
-
+        // handle any preset payload (routed/appended algorithm)
+        if(!this->presetSent && DramcoUno.millisWithOffset() > this->presetTime){
+            this->sendPresetPayload();
+            lateForCad = true; 
+        }
         rf95.sleep();
     }
-    if(!this->presetSent && DramcoUno.millisWithOffset() > this->presetTime){
-        this->sendPresetPayload();
-    }
+    
 }
 
 bool LoRaMultiHop::waitCADDone( void ){
@@ -475,7 +479,7 @@ bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
     // schedule tx
     uint8_t backoff =  random(PREAMBLE_DURATION,3*PREAMBLE_DURATION);
     this->txTime = DramcoUno.millisWithOffset() + backoff;
-    this->txPending = true;
+    this->txPending = true; // Will only be true for beacon!
     this->txLen = len;
 
     return true;
