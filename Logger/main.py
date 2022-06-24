@@ -25,10 +25,7 @@ def parse_line(line_str):
     parts = line_str.rstrip().split(' ')
     # read messageUid
     offset = MESG_FIRST_BYTE_OFFSET + MESG_UID_OFFSET
-    if NODE_UID_SIZE == 2:
-        message_uid = parts[offset] + parts[offset + 1]
-    else:
-        message_uid = parts[offset]
+    message_uid = parts[offset] + parts[offset + 1]
     # read messageType
     offset = MESG_FIRST_BYTE_OFFSET + TYPE_OFFSET
     message_type = parts[offset]
