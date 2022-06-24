@@ -76,33 +76,37 @@ return false;
 #endif
 
     this->shortestRoute.lastSnr = -128;
-
+    
     return true;
 }
 
 void LoRaMultiHop::loop(void){
-    rf95.sleep();
+
+    bool lateForCad = false; 
+
+    if(!lateForCad){
+        rf95.sleep();
 
 #ifdef VERY_LOW_POWER
 #ifdef DEBUG
-    Serial.flush(); // This takes time! Adjust in sleep
-    Serial.end();
+        Serial.flush(); // This takes time! Adjust in sleep
+        Serial.end();
 #endif
-
-    DramcoUno.sleep(random(CAD_DELAY_MIN,CAD_DELAY_MAX), DRAMCO_UNO_3V3_DISABLE); // First sleep with 3v3 off
-    DramcoUno.sleep(CAD_STABILIZE, DRAMCO_UNO_3V3_ACTIVE); // Let 3v3 get stabilised
-    rf95.init(false);
-    this->reconfigModem();
+    
+        DramcoUno.sleep(random(CAD_DELAY_MIN,CAD_DELAY_MAX), DRAMCO_UNO_3V3_DISABLE); // First sleep with 3v3 off
+        DramcoUno.sleep(CAD_STABILIZE, DRAMCO_UNO_3V3_ACTIVE); // Let 3v3 get stabilised
+        rf95.init(false);
+        this->reconfigModem();
 
 #ifdef DEBUG
-    Serial.begin(115200);
+        Serial.begin(115200);
 #endif
 #endif
 
 #ifndef VERY_LOW_POWER
-    DramcoUno.sleep(random(10,PREAMBLE_DURATION-5), true);
+        DramcoUno.sleep(random(10,PREAMBLE_DURATION-5), true);
 #endif
-
+    }
 #ifdef DEBUG_LED
     digitalWrite(DRAMCO_UNO_LED_NAME, HIGH);
 #endif
@@ -119,6 +123,7 @@ void LoRaMultiHop::loop(void){
         rf95.setModeRx();
         rf95.waitAvailableTimeout(random(3*PREAMBLE_DURATION,6*PREAMBLE_DURATION));
         uint8_t len = RH_RF95_MAX_MESSAGE_LEN;
+        lateForCad = true; 
         if(rf95.recv(this->rxBuf, &len)){
 #ifdef DEBUG
             Serial.println(F("Message received."));
@@ -146,6 +151,7 @@ void LoRaMultiHop::loop(void){
         if(this->txPending){
             if(DramcoUno.millisWithOffset() > this->txTime){
                 this->txMessage(txLen);
+                lateForCad = true; 
             }
         }
 
