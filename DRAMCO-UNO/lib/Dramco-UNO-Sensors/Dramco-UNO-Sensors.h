@@ -11,6 +11,10 @@
 #include "Wire.h"
 #include "LIS2DW12.h"
 
+#define DRAMCO_UNO_WDT_ENABLE 					  true
+#define DRAMCO_UNO_WDT_TIMEOUT 					  WDTO_8S
+
+
 #if HARDWARE_VERSION >= 2
 #define DRAMCO_UNO_LED_NAME 					  10
 #define DRAMCO_UNO_LED_PORT 					  PORTB
@@ -113,6 +117,7 @@
 class DramcoUnoClass {
 	public:
 		void begin();
+		void loop();
 		
 		// --- Utils ---
 		void delay(uint32_t d);

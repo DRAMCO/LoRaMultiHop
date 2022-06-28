@@ -23,7 +23,9 @@
 #define TX_BACKOFF_MIN                  PREAMBLE_DURATION       // Backoff if CAD detected when wanting to send
 #define TX_BACKOFF_MAX                  3*PREAMBLE_DURATION
 
-#define MAX_BUF_SIZE 16     // Max preset buffer size 
+#define MAX_PRESET_BUFFER_SIZE 16     // Max preset buffer size 
+#define MAX_FORWARD_BUFFER_SIZE 3*MAX_PRESET_BUFFER_SIZE     // Max preset buffer size 
+
 
 #define PIN_ENABLE_3V3    8
 #define PIN_MODEM_SS      6
@@ -135,8 +137,8 @@ class LoRaMultiHop{
 
         RouteToGatewayInfo_t shortestRoute;
 
-        uint8_t presetOwnData[MAX_BUF_SIZE];
-        uint8_t presetForwardedData[MAX_BUF_SIZE];
+        uint8_t presetOwnData[MAX_PRESET_BUFFER_SIZE];
+        uint8_t presetForwardedData[MAX_FORWARD_BUFFER_SIZE];
         uint8_t presetLength = 0;
         uint8_t presetForwardedLength = 0;
         unsigned long presetTime;

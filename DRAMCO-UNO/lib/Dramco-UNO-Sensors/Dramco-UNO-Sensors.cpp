@@ -53,7 +53,19 @@ void DramcoUnoClass::begin(){
     
     pinMode(DRAMCO_UNO_SOIL_PIN_EN, OUTPUT);
     digitalWrite(DRAMCO_UNO_SOIL_PIN_EN, LOW);
+
+#if DRAMCO_UNO_WDT_ENABLE == true 
+    wdt_enable(DRAMCO_UNO_WDT_TIMEOUT);
+#endif
 }
+
+// ------------------------ DRAMCO UNO LIB ------------------------
+void DramcoUnoClass::loop(){  
+#if DRAMCO_UNO_WDT_ENABLE == true 
+    wdt_reset();
+#endif
+}
+
 
 // --- General UTILs ---
 void DramcoUnoClass::blink(){
@@ -344,6 +356,10 @@ unsigned long DramcoUnoClass::_sleep(unsigned long maxWaitTimeMillis, bool sleep
     wdt_reset();
     wdt_disable();
 
+#if DRAMCO_UNO_WDT_ENABLE == true 
+    wdt_enable(DRAMCO_UNO_WDT_TIMEOUT);
+#endif
+
     if(!_keep3V3Active){
         DDRD = d_d;
         PORTD = v_d;
@@ -423,8 +439,11 @@ void  DramcoUnoClass::fastSleep(void){
     // Once awakened by the watchdog execution resumes here.
     // Start by disabling sleep.
     sleep_disable();
-
-    _millisOffset += 60;
+    
+#if DRAMCO_UNO_WDT_ENABLE == true 
+    wdt_enable(DRAMCO_UNO_WDT_TIMEOUT);
+#endif
+    _millisOffset += 15;
 }
 
 void DramcoUnoClass::_isrWdt() {

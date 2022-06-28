@@ -107,6 +107,7 @@ public:
     /// \param[in] timeout Maximum time to wait in milliseconds.
     /// \return true if the RF22 completed transmission within the timeout period. False if it timed out.
     virtual bool            waitPacketSent(uint16_t timeout);
+    virtual bool            waitPacketSent(uint16_t timeout, void (*)(void));
 
     /// Starts the receiver and blocks until a received message is available or a timeout
     /// \param[in] timeout Maximum time to wait in milliseconds.

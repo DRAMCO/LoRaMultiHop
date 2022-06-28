@@ -26,7 +26,7 @@ bool measureNow = false;
 uint8_t payloadBuf[RH_RF95_MAX_MESSAGE_LEN];
 uint8_t payloadLen = 0;
 
-uint16_t ctr = 0;
+uint16_t ctr = 0x00;
 
 unsigned long prevTT = 0;
 unsigned long prevMeasurement = 0;
@@ -163,7 +163,7 @@ void loop(){
     // Add sensor data to preset payload, multihop will take care when it will be sent
     // (within PRESET_MAX_LATENCY)
     multihop.presetPayload(data, i);
-
+    
     DramcoUno.interruptOnButtonPress();
   }
 

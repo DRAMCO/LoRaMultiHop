@@ -6,6 +6,10 @@ RH_RF95 rf95(PIN_MODEM_SS, PIN_MODEM_INT);
 
 MsgReceivedCb mrc = NULL;
 
+static void wdtYield(){
+    DramcoUno.loop();
+}
+
 void printBuffer(uint8_t * buf, uint8_t len){
     for(uint8_t i; i<len; i++){
         if(buf[i]<16) Serial.print(" 0");
@@ -169,6 +173,8 @@ void LoRaMultiHop::loop(void){
         rf95.sleep();
     }
     
+    DramcoUno.loop();
+
 }
 
 bool LoRaMultiHop::waitCADDone( void ){
@@ -368,7 +374,9 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
                     routeUpdated = true;
                 }
             }
+#ifdef DEBUG
             if(routeUpdated){
+                
                 Serial.println(F("Shortest path info updated"));
                 Serial.print(F(" - gateway via: 0x"));
                 Serial.println(this->shortestRoute.viaNode, HEX);
@@ -383,7 +391,8 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
             Serial.println(rf95.lastRssi());
             Serial.print(F("SNR: "));
             Serial.println(rf95.lastSnr());
-            
+#endif
+
             this->forwardMessage(buf, len);
             return false; // no user callback
         } break;
@@ -494,7 +503,8 @@ bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
 
 void LoRaMultiHop::txMessage(uint8_t len){
     rf95.send(this->txBuf, len);
-    rf95.waitPacketSent(1000);
+    void (*  fptr)() = &wdtYield;
+    rf95.waitPacketSent(1000, fptr);
 #ifdef DEBUG
     Serial.print(F("TX MSG: "));
     for(uint8_t i=0; i<len; i++){
@@ -573,7 +583,7 @@ bool LoRaMultiHop::presetPayload(uint8_t * payload, uint8_t len){
     // forwarded, so we can append this payload to that message
 
     // Check if forward payload does not exceed max length
-    if((len & 0x07) > RH_RF95_MAX_MESSAGE_LEN-HEADER_SIZE-NODE_UID_SIZE-MESG_PAYLOAD_LEN_SIZE){
+    if((len & 0x07) > MAX_PRESET_BUFFER_SIZE-HEADER_SIZE-NODE_UID_SIZE-MESG_PAYLOAD_LEN_SIZE){
         return false;
     }
 #ifdef DEBUG
@@ -607,7 +617,7 @@ bool LoRaMultiHop::presetForwardPayload(uint8_t * payload, uint8_t len){
     // forwarded, so we can append this payload to that message
 
     // Check if forward payload does not exceed max length
-    if(len > RH_RF95_MAX_MESSAGE_LEN-HEADER_SIZE-NODE_UID_SIZE-MESG_PAYLOAD_LEN_SIZE){
+    if(len > MAX_FORWARD_BUFFER_SIZE-HEADER_SIZE-NODE_UID_SIZE-MESG_PAYLOAD_LEN_SIZE){
 #ifdef DEBUG
         Serial.println(F("Max. message length exceeded. Extra payload will be dropped."));
 #endif

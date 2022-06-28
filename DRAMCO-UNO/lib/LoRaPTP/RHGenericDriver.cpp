@@ -58,11 +58,26 @@ bool RHGenericDriver::waitPacketSent()
 bool RHGenericDriver::waitPacketSent(uint16_t timeout)
 {
     unsigned long starttime = millis();
-    while ((millis() - starttime) < timeout)
-    {
-        if (_mode != RHModeTx) // Any previous transmit finished?
-           return true;
-	YIELD;
+    while ((millis() - starttime) < timeout){
+        if (_mode != RHModeTx){
+            // Any previous transmit finished?
+            return true;
+        } 
+	    YIELD;
+    }
+    return false;
+}
+
+bool RHGenericDriver::waitPacketSent(uint16_t timeout, void (*wdYield)(void))
+{
+    unsigned long starttime = millis();
+    while ((millis() - starttime) < timeout){
+        if (_mode != RHModeTx){
+            // Any previous transmit finished?
+            return true;
+        } 
+        (*wdYield)();
+	    YIELD;
     }
     return false;
 }
