@@ -5,9 +5,10 @@ import serial
 import json
 import io
 from datetime import datetime
-
-# general settings
-port = 'COM31'
+import argparse
+import csv
+import ftplib
+import configparser
 
 MESG_UID_SIZE = 2
 NODE_UID_SIZE = 1
@@ -19,6 +20,8 @@ HOPS_OFFSET = TYPE_OFFSET + 1
 NEXT_PREVIOUS_UID_OFFSET = HOPS_OFFSET + 1
 PAYLOAD_OFFSET = NEXT_PREVIOUS_UID_OFFSET + NODE_UID_SIZE
 
+config = configparser.ConfigParser()
+config.read('config.ini')
 
 # parse a line
 def parse_line(line_str):
@@ -107,6 +110,81 @@ def parse_payload(line_parts):
 
     return payload
 
+def ftp_download(file_name):
+    print(config["FTP"]["Server"])
+    ftp = ftplib.FTP(config["FTP"]["Server"],config["FTP"]["User"],config["FTP"]["Password"])
+    ftp.cwd(config["FTP"]["Directory"])
+
+    if file_name is None or file_name == '':
+        files = ftp.nlst()
+        for file in files:
+            if not (file.endswith('.json') or file.endswith('.csv')):
+                files.remove(file)
+
+        file_name = files[-1]
+
+    try:
+        ftp.retrbinary("RETR " + file_name, open(file_name, 'wb').write)
+    except Exception as e:
+        print("Error")
+        print(e)
+
+    return file_name
+
+def process_csv(file_name):
+    print("Opening csv file")
+    message_log = {
+        "nr_of_messages": 0,
+        "messages": []
+    }
+
+    with open(file_name, 'r') as file:
+        csvReader = csv.reader((line.replace('\0','') for line in file), delimiter=",")
+        header = next(csvReader)
+        for row in csvReader:
+            process_line(row[3], message_log)
+
+    resultFilename = file_name.replace(".csv", ".json")
+    with io.open(resultFilename, 'w', encoding='utf-8') as json_file:
+        json_data = json.dumps(message_log, ensure_ascii=False, indent=4)
+        json_file.write(json_data)
+
+    return resultFilename
+
+def process_line(line, message_log):
+    if line.find('RSSI: ') > -1:
+        line_parts = line.split(' ')
+        try:
+            last_rssi = int(line_parts[1])
+        except ValueError:
+            last_rssi = 0
+            print("ERROR: could not convert RSSI to an integer")
+
+    if line.find('SNR: ') > -1:
+        line_parts = line.split(' ')
+        try:
+            last_snr = int(line_parts[1])
+        except ValueError:
+            last_snr = 0
+            print("ERROR: could not convert SNR to an integer")
+
+    # check contents of the line and take action when necessary
+    if line.find('Packet: ') > -1:
+        print("Parsing line:")
+        print(line)
+
+        # parse line containing message to json format
+        message_info = parse_line(line)
+        message_info['rssi'] = last_rssi
+        message_info['snr'] = last_snr
+        print(message_info)
+
+        # add message_info to list // TODO: do we have enough RAM?
+        message_log["nr_of_messages"] = message_log["nr_of_messages"] + 1
+        message_log["messages"].append(message_info)
+
+    else:
+        print(line)
 
 def run_logger(port_name):
     ser = serial.Serial()
@@ -133,40 +211,7 @@ def run_logger(port_name):
                         line += char.decode()
                     if char == b'\n':
                         line_complete = True
-
-                if line.find('RSSI: ') > -1:
-                    line_parts = line.split(' ')
-                    try:
-                        last_rssi = int(line_parts[1])
-                    except ValueError:
-                        last_rssi = 0
-                        print("ERROR: could not convert RSSI to an integer")
-
-                if line.find('SNR: ') > -1:
-                    line_parts = line.split(' ')
-                    try:
-                        last_snr = int(line_parts[1])
-                    except ValueError:
-                        last_snr = 0
-                        print("ERROR: could not convert SNR to an integer")
-
-                # check contents of the line and take action when necessary
-                if line.find('Packet: ') > -1:
-                    print("Parsing line:")
-                    print(line)
-
-                    # parse line containing message to json format
-                    message_info = parse_line(line)
-                    message_info['rssi'] = last_rssi
-                    message_info['snr'] = last_snr
-                    print(message_info)
-
-                    # add message_info to list // TODO: do we have enough RAM?
-                    message_log["nr_of_messages"] = message_log["nr_of_messages"] + 1
-                    message_log["messages"].append(message_info)
-
-                else:
-                    print(line)
+                process_line(line, message_log)
 
         except KeyboardInterrupt:
             if ser.isOpen():
@@ -195,6 +240,7 @@ def get_uids_from_payload(payload_data):
     return uid
 
 
+
 def run_analysis(file_name):
     if len(file_name) == 0:
         f = []
@@ -203,12 +249,15 @@ def run_analysis(file_name):
             break
 
         for f_n in f:
-            if not f_n.endswith('.json'):
+            if not (f_n.endswith('.json') or f_n.endswith('.csv')):
                 f.remove(f_n)
 
         file_name = f[-1]
 
     print('Analysing ' + file_name)
+
+    if file_name.endswith('.csv'):
+        file_name = process_csv(file_name)
 
     analysed_data = {
         "nr_of_nodes": 0,
@@ -250,24 +299,26 @@ def run_analysis(file_name):
 if __name__ == '__main__':
     valid_option = False
 
-    while not valid_option:
-        ans = input("Analyze (A) or log (L): ")
 
-        if ans.upper() == 'A':
-            valid_option = True
-            run_analysis('')
-            print("Running analysis...")
+    parser = argparse.ArgumentParser("LoraMultiHop Logger and Parser")
+    parser.add_argument("command", help="Should we analyze or log?")
+    parser.add_argument("-p", "--port", dest="port", default=config["Serial"]["DefaultPort"], help="Serial port")
+    parser.add_argument("-f", "--file", dest="file", default="",  help="Filename")
+    parser.add_argument("-o", "--online", dest="online", help="Get file from online FTP source", nargs='?', const='')
 
-        if ans.upper() == 'L':
-            valid_option = True
-            print("Starting logger...")
+    args = parser.parse_args()
 
-            prompt = "Specify port or enter for (" + port + "): "
-            ans = input(prompt)
-            if len(ans.rstrip()) == 0:
-                ans = port.upper()
+    if args.command.lower() == "analyze" or args.command.lower() == "a":
+        file_name = args.file
+        if args.online is not None:
+            file_name = ftp_download(args.file)
+        run_analysis(file_name)
+        print("Running analysis...")
 
-            run_logger(ans)
+    elif args.command.lower() == "log" or args.command.lower() == "l":
+        print("Starting logger...")
+        print("Logging on (" + config["Serial"]["DefaultPort"] + "), change by specifying -p")
+        run_logger(args.port)
 
     # Test parsing of a packet
     # line = "Packet: F7 A0 03 00 00 10 62 00 50 50 02 00 1B 20 02 00 55 D0 02 00 09 "

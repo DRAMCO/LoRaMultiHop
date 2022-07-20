@@ -1,5 +1,5 @@
 
-.DS_Store
-.ini
-.csv
-.json
+*.DS_Store
+Logger/config.ini
+Logger/*.csv
+Logger/*.json
