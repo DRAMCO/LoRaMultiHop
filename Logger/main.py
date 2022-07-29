@@ -91,6 +91,7 @@ def parse_payload(line_parts):
         forwarded_payload = parse_payload(forwarded_data)
     # extra check
     if not (len(forwarded_data) == forwarded_data_length):
+        print(forwarded_data)
         print("ERROR: forwarded data length does not match length field")
 
     payload = [
@@ -111,7 +112,6 @@ def parse_payload(line_parts):
     return payload
 
 def ftp_download(file_name):
-    print(config["FTP"]["Server"])
     ftp = ftplib.FTP(config["FTP"]["Server"],config["FTP"]["User"],config["FTP"]["Password"])
     ftp.cwd(config["FTP"]["Directory"])
 
@@ -142,7 +142,7 @@ def process_csv(file_name):
         csvReader = csv.reader((line.replace('\0','') for line in file), delimiter=",")
         header = next(csvReader)
         for row in csvReader:
-            process_line(row[3], message_log)
+            process_line(row[3].strip(), message_log)
 
     resultFilename = file_name.replace(".csv", ".json")
     with io.open(resultFilename, 'w', encoding='utf-8') as json_file:
@@ -152,12 +152,15 @@ def process_csv(file_name):
     return resultFilename
 
 def process_line(line, message_log):
+    global last_rssi
+    global last_snr
+
     if line.find('RSSI: ') > -1:
         line_parts = line.split(' ')
         try:
             last_rssi = int(line_parts[1])
         except ValueError:
-            last_rssi = 0
+            last_rssi = 255
             print("ERROR: could not convert RSSI to an integer")
 
     if line.find('SNR: ') > -1:
@@ -165,26 +168,31 @@ def process_line(line, message_log):
         try:
             last_snr = int(line_parts[1])
         except ValueError:
-            last_snr = 0
+            last_snr = 255
             print("ERROR: could not convert SNR to an integer")
+
+    if line.find('Setting node UID:') > -1:
+        line_parts = line.split(' ')
+        try:
+            own_uid = line_parts[3]
+            print(own_uid)
+        except ValueError:
+            last_rssi = "FF"
+            print("ERROR: could not find UID")
 
     # check contents of the line and take action when necessary
     if line.find('Packet: ') > -1:
-        print("Parsing line:")
-        print(line)
-
         # parse line containing message to json format
         message_info = parse_line(line)
         message_info['rssi'] = last_rssi
         message_info['snr'] = last_snr
-        print(message_info)
 
         # add message_info to list // TODO: do we have enough RAM?
         message_log["nr_of_messages"] = message_log["nr_of_messages"] + 1
         message_log["messages"].append(message_info)
 
-    else:
-        print(line)
+    # else:
+    #     print(line)
 
 def run_logger(port_name):
     ser = serial.Serial()
@@ -240,8 +248,48 @@ def get_uids_from_payload(payload_data):
     return uid
 
 
+def add_to_payload_list(source_uid, own_data, node_statistics):
+    if own_data:
+        if source_uid not in node_statistics.keys():
+            # First payload of this uid
+            node_statistics[source_uid] = {"last_payload" : int(""+own_data[0]+own_data[1], 16),
+                                           "lost_payloads": 0,
+                                           "resets": 0,
+                                           "succesful_payloads": 1,
+                                           "resent_payloads": 0}
+        else:
+            payload_previous = node_statistics[source_uid]["last_payload"]
+            node_statistics[source_uid]["last_payload"] = int(""+own_data[0]+own_data[1], 16)
+            node_statistics[source_uid]["succesful_payloads"] += 1
+
+            # Process missed payloads
+            if node_statistics[source_uid]["last_payload"] - payload_previous > 1:
+                # We lost some in between packets (in counting up)
+                node_statistics[source_uid]["lost_payloads"] += node_statistics[source_uid]["last_payload"] - payload_previous - 1
+            elif node_statistics[source_uid]["last_payload"] - payload_previous < 0:
+                # Reset must have happened, our counter is lower than previous
+                node_statistics[source_uid]["resets"] += 1
+                # When reset, starts counting at 0, so first payload is counter for lost payloads
+                node_statistics[source_uid]["lost_payloads"] += node_statistics[source_uid]["last_payload"]
+            elif node_statistics[source_uid]["last_payload"] == payload_previous:
+                # When payload is received twice in a row
+                node_statistics[source_uid]["resent_payloads"] += 1
+
+
+def analyze_payload(payload, node_statistics):
+    add_to_payload_list(payload["source_uid"], payload["payload_data"], node_statistics)
+
+    # multiple forwarded payloads on a same distance
+    if len(payload["forwarded_payload"]) > 0 :
+        for e in payload["forwarded_payload"]:
+            analyze_payload(e, node_statistics)
+
 
 def run_analysis(file_name):
+    payload_list = {}
+    payload_last = {}
+    node_statistics = {}
+
     if len(file_name) == 0:
         f = []
         for (_, _, filenames) in os.walk(os.getcwd()):
@@ -264,7 +312,7 @@ def run_analysis(file_name):
         "node_statistics": []
     }
 
-    node_statistics_unsorted = []
+    node_statistics = {}
     try:
         with open(file_name) as json_file:
             data = json.load(json_file)
@@ -273,24 +321,13 @@ def run_analysis(file_name):
             # first we look for all the different nodes we can find
             for message in data["messages"]:
                 payload = message["payload"]
+                for e in payload:
+                    analyze_payload(e, node_statistics)
 
-                # find all different occurring node uid's
-                node_uids = get_uids_from_payload(payload)
-                # for each node_uid found, check if it is allready in the statistics, otherwise add it to the list
-                for node_uid in node_uids:
-                    node_uid_in_list = False
-                    for node_info in node_statistics_unsorted:
-                        if node_info["node_uid"] == node_uid:
-                            node_uid_in_list = True
-                            break
-                    if not node_uid_in_list:
-                        node_statistics_unsorted.append({"node_uid": node_uid})
+            analysed_data["node_statistics"] = node_statistics
+            analysed_data["nr_of_nodes"] = len(node_statistics)
 
-            node_statistics_sorted = sorted(node_statistics_unsorted, key=lambda k: k["node_uid"])
-            analysed_data["node_statistics"] = node_statistics_sorted
-            analysed_data["nr_of_nodes"] = len(node_statistics_sorted)
-            print(analysed_data)
-
+            print(node_statistics)
     except ValueError as err:
         print("Wrong json format?")
 
@@ -312,8 +349,9 @@ if __name__ == '__main__':
         file_name = args.file
         if args.online is not None:
             file_name = ftp_download(args.file)
-        run_analysis(file_name)
         print("Running analysis...")
+        run_analysis(file_name)
+
 
     elif args.command.lower() == "log" or args.command.lower() == "l":
         print("Starting logger...")
@@ -325,4 +363,4 @@ if __name__ == '__main__':
     # info = parse_line(line)
     # print(str(info))
 
-    print('program end')
+    print('Program end')
