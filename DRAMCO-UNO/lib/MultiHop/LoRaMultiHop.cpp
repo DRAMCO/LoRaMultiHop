@@ -418,6 +418,7 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
             Serial.println(sentFrom, HEX);
             if(sentTo == this->uid){
                 Serial.println(F("Message sent to this node"));
+                // TODO: do this for every, but different keyword for receiver/non-receiver
                 if(sentTo == GATEWAY_UID){
                     // end of the line -> user cb
                     Serial.println(F("Arrived at gateway -> user cb."));
