@@ -326,10 +326,22 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
         return false;
     }
 
+#ifdef DEBUG
+    Serial.print(F("RX MSG: "));
+    for(uint8_t i=0; i<len; i++){
+        if(buf[i] < 16){
+            Serial.print('0');
+        }
+        Serial.print(buf[i], HEX);
+        Serial.print(' ');
+    }
+    Serial.println();
+#endif
+
     Serial.print("Type: ");
     Serial.print(buf[HEADER_TYPE_OFFSET]);
     switch(buf[HEADER_TYPE_OFFSET]){
-        // Gateway beacons are used to determine the shortest path (least hops) to the gateway
+        // BEACON: Gateway beacons are used to determine the shortest path (least hops) to the gateway
         case GATEWAY_BEACON:{
             Serial.println(F(" = BEACON"));
             if(this->uid == GATEWAY_UID){
@@ -376,7 +388,6 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
             }
 #ifdef DEBUG
             if(routeUpdated){
-                
                 Serial.println(F("Shortest path info updated"));
                 Serial.print(F(" - gateway via: 0x"));
                 Serial.println(this->shortestRoute.viaNode, HEX);
@@ -387,6 +398,7 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
             else{
                 Serial.println(F("Route not updated."));
             }
+
             Serial.print(F("RSSI: "));
             Serial.println(rf95.lastRssi());
             Serial.print(F("SNR: "));
@@ -397,7 +409,7 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
             return false; // no user callback
         } break;
 
-        // sensor 
+        // BROADCAST: To all nodes, always forward 
         case DATA_BROADCAST:{
             Serial.println(F(" = DATA BROODKAST"));
             if(this->uid == GATEWAY_UID){
@@ -408,6 +420,7 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
             return false;
         } break;
 
+        // ROUTED: To end node (gateway), only forward according to routing 
         case DATA_ROUTED:{
             Serial.println(F(" = DATA ROUTED"));
             Node_UID_t sentTo = this->getNodeUidFromBuffer(buf, NEXT_NODE);
@@ -416,25 +429,38 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
             Serial.println(sentTo, HEX);
             Serial.print("From: 0x");
             Serial.println(sentFrom, HEX);
+            Serial.print(F("RSSI: "));
+            Serial.println(rf95.lastRssi());
+            Serial.print(F("SNR: "));
+            Serial.println(rf95.lastSnr());
             if(sentTo == this->uid){
                 Serial.println(F("Message sent to this node"));
                 // TODO: do this for every, but different keyword for receiver/non-receiver
                 if(sentTo == GATEWAY_UID){
                     // end of the line -> user cb
                     Serial.println(F("Arrived at gateway -> user cb."));
-                    Serial.print(F("RSSI: "));
-                    Serial.println(rf95.lastRssi());
-                    Serial.print(F("SNR: "));
-                    Serial.println(rf95.lastSnr());
+                    
                     return true;
                 }
                 else{ // data needs to be forwarded
                     Serial.println(F("Data needs to be forwarded"));
 
-
                     this->forwardMessage(buf, len);
                 }
+
             }
+            
+#ifdef DEBUG
+            Serial.print(F("Packet (not for me): "));
+            for(uint8_t i=0; i<len; i++){
+                if(buf[i] < 16){
+                    Serial.print('0');
+                }
+                Serial.print(buf[i], HEX);
+                Serial.print(' ');
+            }
+            Serial.println();
+#endif
             return false;
         } break;
 

@@ -13,7 +13,7 @@ import configparser
 MESG_UID_SIZE = 2
 NODE_UID_SIZE = 1
 
-MESG_FIRST_BYTE_OFFSET = 1      # start of the actual message "Packet:" is position 0
+MESG_FIRST_BYTE_OFFSET = 0      # start of the actual message "Packet:" is position 0
 MESG_UID_OFFSET = 0
 TYPE_OFFSET = MESG_UID_OFFSET + MESG_UID_SIZE
 HOPS_OFFSET = TYPE_OFFSET + 1
@@ -43,6 +43,7 @@ def parse_line(line_str):
         destination_uid = parts[offset]
     # read payload
     offset = MESG_FIRST_BYTE_OFFSET + PAYLOAD_OFFSET
+
     payload = parse_payload(parts[offset:])
 
     # general info for this message
@@ -132,8 +133,14 @@ def ftp_download(file_name):
     return file_name
 
 def process_csv(file_name):
+    global last_rssi
+    global last_snr
+    global last_action
+
+
     print("Opening csv file")
     message_log = {
+        "own_uid": "FF",
         "nr_of_messages": 0,
         "messages": []
     }
@@ -154,6 +161,11 @@ def process_csv(file_name):
 def process_line(line, message_log):
     global last_rssi
     global last_snr
+    global last_action
+
+    last_rssi = 255
+    last_snr = 255
+    last_action = "none"
 
     if line.find('RSSI: ') > -1:
         line_parts = line.split(' ')
@@ -171,35 +183,60 @@ def process_line(line, message_log):
             last_snr = 255
             print("ERROR: could not convert SNR to an integer")
 
+    own_uid = "FF"
     if line.find('Setting node UID:') > -1:
         line_parts = line.split(' ')
         try:
             own_uid = line_parts[3]
             print(own_uid)
         except ValueError:
-            last_rssi = "FF"
             print("ERROR: could not find UID")
 
+    if line.find('Message will be forwarded') > -1:
+        last_action = "forwarded"
+
+    if line.find('Duplicated. Message not forwarded.') > -1:
+        last_action = "none/duplicate"
+
+    if line.find('Message sent to this node') > -1:
+        last_action = "arrived"
+
     # check contents of the line and take action when necessary
-    if line.find('Packet: ') > -1:
+    if line.find('Packet: ') > -1 or line.find('Packet (not for me): ') > -1:
         # parse line containing message to json format
+        line = line.replace('Packet: ', '')
+        line = line.replace('Packet (not for me): ', '')
         message_info = parse_line(line)
         message_info['rssi'] = last_rssi
         message_info['snr'] = last_snr
+        message_info['action'] = last_action
+        message_info['last_sender_uid'] = message_info["payload"][0]["source_uid"]
+
+        last_action = "none"
 
         # add message_info to list // TODO: do we have enough RAM?
         message_log["nr_of_messages"] = message_log["nr_of_messages"] + 1
+        if message_log["own_uid"] == "FF":
+            message_log["own_uid"] = own_uid
         message_log["messages"].append(message_info)
+
+
+        # Rest last action
 
     # else:
     #     print(line)
 
 def run_logger(port_name):
+    global last_rssi
+    global last_snr
+    global last_action
+
     ser = serial.Serial()
     ser.baudrate = 115200
     ser.port = port_name
 
     message_log = {
+        "own_uid": "FF",
         "nr_of_messages": 0,
         "messages": []
     }
@@ -209,6 +246,7 @@ def run_logger(port_name):
 
         last_rssi = 0
         last_snr = 0
+        last_action = "none"
         try:
             while True:  # continuously read and parse lines
                 line = ""
@@ -255,7 +293,7 @@ def add_to_payload_list(source_uid, own_data, node_statistics):
             node_statistics[source_uid] = {"last_payload" : int(""+own_data[0]+own_data[1], 16),
                                            "lost_payloads": 0,
                                            "resets": 0,
-                                           "succesful_payloads": 1,
+                                           "arrived_payloads": 1,
                                            "resent_payloads": 0}
         else:
             payload_previous = node_statistics[source_uid]["last_payload"]
