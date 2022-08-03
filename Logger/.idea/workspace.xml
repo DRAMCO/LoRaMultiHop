@@ -5,8 +5,6 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="115e9240-6454-49be-b869-a03326d4e216" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/../DRAMCO-UNO/lib/MultiHop/LoRaMultiHop.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../DRAMCO-UNO/lib/MultiHop/LoRaMultiHop.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../DRAMCO-UNO/platformio.ini" beforeDir="false" afterPath="$PROJECT_DIR$/../DRAMCO-UNO/platformio.ini" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
     </list>
@@ -30,12 +28,16 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "ASKED_ADD_EXTERNAL_FILES": "true",
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
     "WebServerToolWindowFactoryState": "false",
+    "last_opened_file_path": "K:/Onedrive - KU Leuven/Werk/Projecten/II-Nest/LoRaMultiHop/Logger",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "vcs.Git"
   }
 }]]></component>
   <component name="RunManager">
@@ -74,6 +76,7 @@
       <workItem from="1655386433177" duration="35000" />
       <workItem from="1655796076223" duration="26319000" />
       <workItem from="1656078047036" duration="422000" />
+      <workItem from="1659428881527" duration="9828000" />
     </task>
     <servers />
   </component>

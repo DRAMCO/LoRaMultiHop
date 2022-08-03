@@ -145,7 +145,8 @@ void RH_RF95::handleInterrupt()
 	// Remember the RSSI of this packet
 	// this is according to the doc, but is it really correct?
 	// weakest receiveable signals are reported RSSI at about -66
-	_lastRssi = spiRead(RH_RF95_REG_1A_PKT_RSSI_VALUE) - 137;
+    // Changed by Guus to reflect datasheet: https://cdn-shop.adafruit.com/product-files/3179/sx1276_77_78_79.pdf, remove non-lin in post processing
+	_lastRssi = spiRead(RH_RF95_REG_1A_PKT_RSSI_VALUE);
     _lastSnr = spiRead(RH_RF95_REG_19_PKT_SNR_VALUE);
     
 	// We have received a message.

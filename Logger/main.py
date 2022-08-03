@@ -136,7 +136,12 @@ def process_csv(file_name):
     global last_rssi
     global last_snr
     global last_action
+    global own_uid
 
+    own_uid = "FF"
+    last_rssi = 255
+    last_snr = 255
+    last_action = "error"
 
     print("Opening csv file")
     message_log = {
@@ -162,10 +167,7 @@ def process_line(line, message_log):
     global last_rssi
     global last_snr
     global last_action
-
-    last_rssi = 255
-    last_snr = 255
-    last_action = "none"
+    global own_uid
 
     if line.find('RSSI: ') > -1:
         line_parts = line.split(' ')
@@ -183,7 +185,6 @@ def process_line(line, message_log):
             last_snr = 255
             print("ERROR: could not convert SNR to an integer")
 
-    own_uid = "FF"
     if line.find('Setting node UID:') > -1:
         line_parts = line.split(' ')
         try:
@@ -192,13 +193,13 @@ def process_line(line, message_log):
         except ValueError:
             print("ERROR: could not find UID")
 
-    if line.find('Message will be forwarded') > -1:
+    if line.find('Data needs to be forwarded') > -1:
         last_action = "forwarded"
 
-    if line.find('Duplicated. Message not forwarded.') > -1:
+    if line.find('Duplicate. Message not forwarded.') > -1:
         last_action = "none/duplicate"
 
-    if line.find('Message sent to this node') > -1:
+    if line.find('Message sent to this node') > -1 or line.find('Arrived at gateway -> user cb.') > -1:
         last_action = "arrived"
 
     # check contents of the line and take action when necessary
@@ -207,21 +208,38 @@ def process_line(line, message_log):
         line = line.replace('Packet: ', '')
         line = line.replace('Packet (not for me): ', '')
         message_info = parse_line(line)
-        message_info['rssi'] = last_rssi
-        message_info['snr'] = last_snr
         message_info['action'] = last_action
         message_info['last_sender_uid'] = message_info["payload"][0]["source_uid"]
+        message_info['packet_rssi'] = last_rssi
+        message_info['packet_snr'] = last_snr
 
-        last_action = "none"
 
-        # add message_info to list // TODO: do we have enough RAM?
-        message_log["nr_of_messages"] = message_log["nr_of_messages"] + 1
+        # Correction factor as described in https://cdn-shop.adafruit.com/product-files/3179/sx1276_77_78_79.pdf
+
+        # default: Packet Strength (dBm) = -157 + PacketRssi
+        # if SNR < 0 : Packet Strength (dBm) = -157 + PacketRssi + PacketSnr * 0.25
+        # if RSSI > -100dBm: RSSI = -157 + 16/15 * PacketRssi
+
+        # if Packet Strength (dBm) = -157 + PacketRssi + PacketSnr * 0.25 > -100 dBm and SNR >= 0:
+            # apply correction factor to packetrssi of 16/15
+
+        packet_strength = -157 + last_rssi + last_snr*0.25
+        if packet_strength > -100 and last_snr >= 0:
+            # apply correction factor to packetrssi of 16/15
+            packet_strength = -157 + (16/15)*last_rssi + last_snr*0.25
+
+        message_info['packet_rss'] = packet_strength
+
+
         if message_log["own_uid"] == "FF":
             message_log["own_uid"] = own_uid
         message_log["messages"].append(message_info)
 
+    # Reset last action
+    if line.find('RX MSG: ') >-1 or line.find('TX MSG: '):
+        last_action = "none"
 
-        # Rest last action
+
 
     # else:
     #     print(line)
@@ -230,6 +248,7 @@ def run_logger(port_name):
     global last_rssi
     global last_snr
     global last_action
+    global own_uid
 
     ser = serial.Serial()
     ser.baudrate = 115200
@@ -244,9 +263,12 @@ def run_logger(port_name):
     try:
         ser.open()
 
-        last_rssi = 0
-        last_snr = 0
+        own_uid = "FF"
+        last_rssi = 255
+        last_snr = 255
         last_action = "none"
+
+
         try:
             while True:  # continuously read and parse lines
                 line = ""
@@ -298,7 +320,7 @@ def add_to_payload_list(source_uid, own_data, node_statistics):
         else:
             payload_previous = node_statistics[source_uid]["last_payload"]
             node_statistics[source_uid]["last_payload"] = int(""+own_data[0]+own_data[1], 16)
-            node_statistics[source_uid]["succesful_payloads"] += 1
+            node_statistics[source_uid]["arrived_payloads"] += 1
 
             # Process missed payloads
             if node_statistics[source_uid]["last_payload"] - payload_previous > 1:
@@ -322,12 +344,7 @@ def analyze_payload(payload, node_statistics):
         for e in payload["forwarded_payload"]:
             analyze_payload(e, node_statistics)
 
-
-def run_analysis(file_name):
-    payload_list = {}
-    payload_last = {}
-    node_statistics = {}
-
+def file_open(file_name):
     if len(file_name) == 0:
         f = []
         for (_, _, filenames) in os.walk(os.getcwd()):
@@ -345,6 +362,13 @@ def run_analysis(file_name):
     if file_name.endswith('.csv'):
         file_name = process_csv(file_name)
 
+    return file_name
+
+def run_analysis(file_name):
+    payload_list = {}
+    payload_last = {}
+    node_statistics = {}
+
     analysed_data = {
         "nr_of_nodes": 0,
         "node_statistics": []
@@ -352,7 +376,7 @@ def run_analysis(file_name):
 
     node_statistics = {}
     try:
-        with open(file_name) as json_file:
+        with open(file_open(file_name)) as json_file:
             data = json.load(json_file)
             print("Total number of messages: " + str(data["nr_of_messages"]))
 
@@ -366,6 +390,40 @@ def run_analysis(file_name):
             analysed_data["nr_of_nodes"] = len(node_statistics)
 
             print(node_statistics)
+
+            resultFilename = file_name.replace(".csv", "").replace(".json", "")
+            with io.open(resultFilename + "-analysis.json", 'w', encoding='utf-8') as json_file:
+                json_data = json.dumps(node_statistics, ensure_ascii=False, indent=4)
+                json_file.write(json_data)
+
+    except ValueError as err:
+        print("Wrong json format?")
+
+
+def run_signal_analysis(file_name):
+
+    try:
+        with open(file_open(file_name)) as json_file:
+            data = json.load(json_file)
+            print("Total number of messages: " + str(data["nr_of_messages"]))
+
+            signal_quality_list = {
+                "own_uid": data["own_uid"],
+                "connections": {}
+            }
+            # first we look for all the different nodes we can find
+            for message in data["messages"]:
+                print(message)
+                print(message["last_sender_uid"])
+                if message["last_sender_uid"] not in signal_quality_list["connections"].keys():
+                    signal_quality_list["connections"][message["last_sender_uid"]] = []
+                signal_quality_list["connections"][message["last_sender_uid"]].append({"packet_rssi": message["packet_rssi"], "packet_snr": message["packet_snr"], "packet_rss": message["packet_rss"]})
+
+            resultFilename = file_name.replace(".csv", "").replace(".json", "")
+            with io.open(resultFilename+"-signal-analysis.json", 'w', encoding='utf-8') as json_file:
+                json_data = json.dumps(signal_quality_list, ensure_ascii=False, indent=4)
+                json_file.write(json_data)
+
     except ValueError as err:
         print("Wrong json format?")
 
@@ -380,6 +438,7 @@ if __name__ == '__main__':
     parser.add_argument("-p", "--port", dest="port", default=config["Serial"]["DefaultPort"], help="Serial port")
     parser.add_argument("-f", "--file", dest="file", default="",  help="Filename")
     parser.add_argument("-o", "--online", dest="online", help="Get file from online FTP source", nargs='?', const='')
+    parser.add_argument("-s", "--signal", dest="signal", help="Signal Quality Report", nargs='?', const='')
 
     args = parser.parse_args()
 
@@ -389,6 +448,8 @@ if __name__ == '__main__':
             file_name = ftp_download(args.file)
         print("Running analysis...")
         run_analysis(file_name)
+        if args.signal is not None:
+            run_signal_analysis(file_name)
 
 
     elif args.command.lower() == "log" or args.command.lower() == "l":
