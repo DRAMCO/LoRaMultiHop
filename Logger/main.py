@@ -193,14 +193,9 @@ def process_line(line, message_log):
         except ValueError:
             print("ERROR: could not find UID")
 
-    if line.find('Data needs to be forwarded') > -1:
-        last_action = "forwarded"
-
-    if line.find('Duplicate. Message not forwarded.') > -1:
-        last_action = "none/duplicate"
-
-    if line.find('Message sent to this node') > -1 or line.find('Arrived at gateway -> user cb.') > -1:
-        last_action = "arrived"
+    if line.find('action') > -1:
+        line_parts = line.split(' ')
+        last_action = line_parts[1]
 
     # check contents of the line and take action when necessary
     if line.find('Packet: ') > -1 or line.find('Packet (not for me): ') > -1:
@@ -236,7 +231,7 @@ def process_line(line, message_log):
         message_log["messages"].append(message_info)
 
     # Reset last action
-    if line.find('RX MSG: ') >-1 or line.find('TX MSG: '):
+    if line.find('Message received') >-1:
         last_action = "none"
 
 

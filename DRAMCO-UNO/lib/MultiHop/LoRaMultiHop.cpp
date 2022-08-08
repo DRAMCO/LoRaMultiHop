@@ -433,25 +433,26 @@ bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
             Serial.println(rf95.lastRssi());
             Serial.print(F("SNR: "));
             Serial.println(rf95.lastSnr());
+            Serial.print(F("Action: "));
             if(sentTo == this->uid){
-                Serial.println(F("Message sent to this node"));
                 // TODO: do this for every, but different keyword for receiver/non-receiver
                 if(sentTo == GATEWAY_UID){
                     // end of the line -> user cb
-                    Serial.println(F("Arrived at gateway -> user cb."));
+                    Serial.println(F("none/arrived"));
                     
                     return true;
                 }
                 else{ // data needs to be forwarded
-                    Serial.println(F("Data needs to be forwarded"));
-
+                    // Action output in forwardMessage
                     this->forwardMessage(buf, len);
                 }
 
+            }else{
+                Serial.print("none/not-for-me");
             }
             
 #ifdef DEBUG
-            Serial.print(F("Packet (not for me): "));
+            Serial.print(F("Packet: "));
             for(uint8_t i=0; i<len; i++){
                 if(buf[i] < 16){
                     Serial.print('0');
@@ -481,6 +482,7 @@ bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
     mInfo.msgUid = getMsgUidFromBuffer(buf);
 
     if(this->floodBuffer.find(mInfo) == CB_SUCCESS){
+        Serial.println(F("none/duplicate"));
 #ifdef DEBUG
         Serial.println(F("Duplicate. Message not forwarded."));
 #endif
@@ -488,7 +490,7 @@ bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
     }
     else{
 #ifdef DEBUG
-        Serial.println(F("Message will be forwarded."));
+        Serial.println(F("sent/forwarded"));
 #endif
     }
 
@@ -640,7 +642,7 @@ bool LoRaMultiHop::presetPayload(uint8_t * payload, uint8_t len){
 }
 
 bool LoRaMultiHop::presetForwardPayload(uint8_t * payload, uint8_t len){
-    // Preset payload ready for sending; we'll wait for a message that needs to be
+    // Preset forwarded payload ready for sending; we'll wait for a message that needs to be
     // forwarded, so we can append this payload to that message
 
     // Check if forward payload does not exceed max length
@@ -650,8 +652,9 @@ bool LoRaMultiHop::presetForwardPayload(uint8_t * payload, uint8_t len){
 #endif
         return false;
     }
+    
 #ifdef DEBUG
-    Serial.print(F("Preset payload, will send after "));
+    Serial.print(F("Preset forwarded payload, will send after "));
     Serial.print(this->latency);
     Serial.println(F(" ms."));
 #endif
