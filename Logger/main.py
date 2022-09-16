@@ -44,8 +44,10 @@ def parse_line(line_str):
     # read payload
     offset = MESG_FIRST_BYTE_OFFSET + PAYLOAD_OFFSET
 
+    print("---START---")
+    print(parts[offset:])
     payload = parse_payload(parts[offset:])
-
+    print("---END---")
     # general info for this message
     message_info = {
         "message_uid": message_uid,
@@ -62,6 +64,7 @@ def parse_line(line_str):
 
 # parse the rest of a line
 def parse_payload(line_parts):
+    print("Got in parse payload: "+ str(line_parts))
     if not len(line_parts) > 1:
         print("Error parsing appended payload (not enough fields remaining)")
         return {}, []
@@ -78,12 +81,15 @@ def parse_payload(line_parts):
     except ValueError:
         print("ERROR: length field is not an integer -> ", line_parts[NODE_UID_SIZE])
 
+
+
     # extract length of forwarded data (5 Msb) and own data (3 Lsb) from the length field
     own_data_length = (length_field & 0x07)
     forwarded_data_length = ((length_field >> 3) & 0x1F)
     offset += 1
     own_data = line_parts[offset:(offset+own_data_length)]
     rest_of_data = line_parts[(offset+own_data_length):]
+    print("forwarded data length:"+str(forwarded_data_length))
     if forwarded_data_length == 0:
         forwarded_data = []
         forwarded_payload = []
@@ -92,8 +98,8 @@ def parse_payload(line_parts):
         forwarded_payload = parse_payload(forwarded_data)
     # extra check
     if not (len(forwarded_data) == forwarded_data_length):
-        print(forwarded_data)
-        print("ERROR: forwarded data length does not match length field")
+        print(line_parts)
+        print("ERROR: forwarded data length ("+ str(len(forwarded_data)) +", "+ str(forwarded_data) +") does not match length field ("+ str(forwarded_data_length)+","+hex(length_field) +")")
 
     payload = [
         {
@@ -105,10 +111,11 @@ def parse_payload(line_parts):
     ]
 
     # multiple forwarded payloads on a same distance
-    if forwarded_data_length == 0 and len(rest_of_data) > 0:
-        el = parse_payload(rest_of_data)
-        for e in el:
-            payload.append(e)
+    # print("end: rest: "+str(rest_of_data) +", data length forwarded: "+str(forwarded_data_length))
+    # if forwarded_data_length == 0 and len(rest_of_data) > 0:
+    #     el = parse_payload(rest_of_data)
+    #     for e in el:
+    #         payload.append(e)
 
     return payload
 
@@ -154,6 +161,7 @@ def process_csv(file_name):
         csvReader = csv.reader((line.replace('\0','') for line in file), delimiter=",")
         header = next(csvReader)
         for row in csvReader:
+            #print(row[3].strip())
             process_line(row[3].strip(), message_log)
 
     resultFilename = file_name.replace(".csv", ".json")
@@ -198,7 +206,7 @@ def process_line(line, message_log):
         last_action = line_parts[1]
 
     # check contents of the line and take action when necessary
-    if line.find('Packet: ') > -1 or line.find('Packet (not for me): ') > -1:
+    if (not line.find('Action: none/not-for-mePacket:')>-1) and (line.find('Packet: ') > -1 or line.find('Packet (not for me): ') > -1):
         # parse line containing message to json format
         line = line.replace('Packet: ', '')
         line = line.replace('Packet (not for me): ', '')
@@ -304,14 +312,19 @@ def get_uids_from_payload(payload_data):
 
 
 def add_to_payload_list(source_uid, own_data, node_statistics):
-    if own_data:
+    if len(own_data)>0:
+        #if source_uid == "20":
+        #    print(str(own_data))
+
         if source_uid not in node_statistics.keys():
             # First payload of this uid
             node_statistics[source_uid] = {"last_payload" : int(""+own_data[0]+own_data[1], 16),
+                                           "first_payload": int(""+own_data[0]+own_data[1], 16),
                                            "lost_payloads": 0,
                                            "resets": 0,
                                            "arrived_payloads": 1,
-                                           "resent_payloads": 0}
+                                           "resent_payloads": 0,
+                                           "packet_delivery_ratio":0}
         else:
             payload_previous = node_statistics[source_uid]["last_payload"]
             node_statistics[source_uid]["last_payload"] = int(""+own_data[0]+own_data[1], 16)
@@ -319,16 +332,24 @@ def add_to_payload_list(source_uid, own_data, node_statistics):
 
             # Process missed payloads
             if node_statistics[source_uid]["last_payload"] - payload_previous > 1:
+                #if source_uid == "20":
+                #    print("lost")
                 # We lost some in between packets (in counting up)
                 node_statistics[source_uid]["lost_payloads"] += node_statistics[source_uid]["last_payload"] - payload_previous - 1
-            elif node_statistics[source_uid]["last_payload"] - payload_previous < 0:
-                # Reset must have happened, our counter is lower than previous
+            elif node_statistics[source_uid]["last_payload"] - payload_previous < -max(10,payload_previous/100):
+                # Reset must have happened, our counter is lower than previous by at least 10 or 1% of counter
                 node_statistics[source_uid]["resets"] += 1
                 # When reset, starts counting at 0, so first payload is counter for lost payloads
+                if source_uid == "20":
+                    print("reset")
+                    print(str(payload_previous))
+                    print(str(node_statistics[source_uid]["last_payload"]))
                 node_statistics[source_uid]["lost_payloads"] += node_statistics[source_uid]["last_payload"]
             elif node_statistics[source_uid]["last_payload"] == payload_previous:
                 # When payload is received twice in a row
                 node_statistics[source_uid]["resent_payloads"] += 1
+            node_statistics[source_uid]["packet_delivery_ratio"] = node_statistics[source_uid]["arrived_payloads"]/(node_statistics[source_uid]["lost_payloads"]+node_statistics[source_uid]["arrived_payloads"])
+
 
 
 def analyze_payload(payload, node_statistics):
