@@ -11,8 +11,8 @@
 #define CAD_DELAY_MIN                   PREAMBLE_DURATION/2
 #define CAD_DELAY_MAX                   PREAMBLE_DURATION-45
 
-#define PRESET_MIN_LATENCY              50000 // In ms
-#define PRESET_MAX_LATENCY              60000 // In ms
+#define PRESET_MIN_LATENCY              MEASURE_INTERVAL/2-10000 // In ms
+#define PRESET_MAX_LATENCY              MEASURE_INTERVAL/2+10000 // In ms
 #define PRESET_MAX_LATENCY_RAND_WINDOW  1000 // Random window around PRESET_MAX_LATENCY
 #define PRESET_LATENCY_UP_STEP          10000
 #define PRESET_LATENCY_DOWN_STEP        0

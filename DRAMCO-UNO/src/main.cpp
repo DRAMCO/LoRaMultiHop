@@ -17,8 +17,7 @@
 #define DRAMCO_UNO_LPP_ACCELEROMETER_MULT   1000
 #define DRAMCO_UNO_LPP_PERCENTAGE_MULT      1
 
-#define BEACON_INTERVAL                         600000 // 10 min
-#define MEASURE_INTERVAL                    60000 // 1 min
+
 
 bool newMsg = false;
 bool measureNow = false;
@@ -116,6 +115,8 @@ void loop(){
   if((DramcoUno.millisWithOffset() - prevTT) > BEACON_INTERVAL){
     prevTT = DramcoUno.millisWithOffset();
     autoToggle = true;
+    Serial.print(F("Own ID: "));
+    Serial.println(NODE_UID, HEX);
   }
   if(DramcoUno.processInterrupt() || autoToggle){
     multihop.sendMessage("UUUU", GATEWAY_BEACON);
@@ -136,7 +137,10 @@ void loop(){
     measureNow = false;
 
 #ifdef DEBUG
+    Serial.print(F("Own ID: "));
+    Serial.println(NODE_UID, HEX);
     Serial.println(F("Composing message"));
+    
 #endif
 
     uint8_t data[15];
