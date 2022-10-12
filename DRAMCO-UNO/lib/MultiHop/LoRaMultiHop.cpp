@@ -146,6 +146,7 @@ void LoRaMultiHop::loop(void){
         }
         // Reschedule TX and PresetSend to allow for backoff 
         // This is TX: just for breacon and broadcast
+        // TODO: make this clear, can this be just to the next CAD? 
         unsigned long now = DramcoUno.millisWithOffset();
         if(this->txPending && (now > this->txTime-TX_BACKOFF_MAX)){
             this->txTime = now + random(TX_BACKOFF_MIN,TX_BACKOFF_MAX); // If CAD detected, add 150-300ms to pending schedule time of next message
