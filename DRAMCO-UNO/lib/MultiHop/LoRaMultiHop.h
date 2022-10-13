@@ -5,31 +5,33 @@
 #include <RH_RF95.h>
 #include "CircBuffer.h"
 
-#define PREAMBLE_DURATION               200.0 // In ms
+#define PREAMBLE_DURATION                   200.0 // In ms
 
-#define CAD_STABILIZE                   30 // In ms
-#define CAD_DELAY_MIN                   PREAMBLE_DURATION/2
-#define CAD_DELAY_MAX                   PREAMBLE_DURATION-45
+#define CAD_STABILIZE                       30 // In ms
+#define CAD_DELAY                           PREAMBLE_DURATION*5/8
+#define CAD_DELAY_RANDOM                    PREAMBLE_DURATION*2/8
+#define CAD_DELAY_MIN                       CAD_DELAY - CAD_DELAY_RANDOM/2
+#define CAD_DELAY_MAX                       CAD_DELAY + CAD_DELAY_RANDOM/2
 
-#define PRESET_MIN_LATENCY              MEASURE_INTERVAL/2-10000 // In ms
-#define PRESET_MAX_LATENCY              MEASURE_INTERVAL/2+10000 // In ms
-#define PRESET_MAX_LATENCY_RAND_WINDOW  1000 // Random window around PRESET_MAX_LATENCY
-#define PRESET_LATENCY_UP_STEP          10000
-#define PRESET_LATENCY_DOWN_STEP        0
+#define AGGREGATION_TIMER_MIN               MEASURE_INTERVAL/2-10000 // In ms
+#define AGGREGATION_TIMER_MAX               MEASURE_INTERVAL/2+10000 // In ms
+#define AGGREGATION_TIMER_RANDOM            1000 // Random window around PRESET_MAX_LATENCY
+#define AGGREGATION_TIMER_UPSTEP            10000
+#define AGGREGATION_TIMER_DOWNSTEP          0
 
-#define FORWARD_BACKOFF_MIN             PREAMBLE_DURATION       // Backoff before forward
-#define FORWARD_BACKOFF_MAX             3*PREAMBLE_DURATION
-
-#define TX_BACKOFF_MIN                  PREAMBLE_DURATION       // Backoff if CAD detected when wanting to send
-#define TX_BACKOFF_MAX                  3*PREAMBLE_DURATION
-
-#define MAX_PRESET_BUFFER_SIZE 16     // Max preset buffer size 
-#define MAX_FORWARD_BUFFER_SIZE 3*MAX_PRESET_BUFFER_SIZE     // Max preset buffer size 
+#define COLLISION_DELAY                     2*PREAMBLE_DURATION       // Backoff if CAD detected when wanting to send
+#define COLLISION_DELAY_RANDOM              PREAMBLE_DURATION
+#define COLLISION_DELAY_MIN                 COLLISION_DELAY-COLLISION_DELAY_RANDOM/2       // Backoff if CAD detected when wanting to send
+#define COLLISION_DELAY_MAX                 COLLISION_DELAY-COLLISION_DELAY_RANDOM/2
 
 
-#define PIN_ENABLE_3V3    8
-#define PIN_MODEM_SS      6
-#define PIN_MODEM_INT     2
+#define AGGREGATION_BUFFER_SIZE             16     // Max preset buffer size 
+#define TX_BUFFER_SIZE                      3*AGGREGATION_BUFFER_SIZE     // Max preset buffer size 
+
+
+#define PIN_ENABLE_3V3                      8
+#define PIN_MODEM_SS                        6
+#define PIN_MODEM_INT                       2
 
 typedef uint16_t Msg_UID_t;
 typedef uint8_t Node_UID_t;
@@ -105,9 +107,9 @@ class LoRaMultiHop{
         void setMsgReceivedCb(MsgReceivedCb cb);
         void reconfigModem(void);
 
-        bool presetPayload(uint8_t * payload, uint8_t len);
-        bool presetForwardPayload(uint8_t * payload, uint8_t len);
-        bool sendPresetPayload( void );
+        bool prepareOwnDataForAggregation(uint8_t * payload, uint8_t len);
+        bool prepareRxDataForAggregation(uint8_t * payload, uint8_t len);
+        bool sendAggregatedMessage( void );
         bool isPresetPayloadSent( void ){
             return presetSent;
         }
@@ -120,7 +122,7 @@ class LoRaMultiHop{
         bool waitCADDone( void );
         bool waitRXAvailable(uint16_t timeout);
 
-        bool handleMessage(uint8_t * buf, uint8_t len);
+        bool handleAnyRxMessage(uint8_t * buf, uint8_t len);
         bool forwardMessage(uint8_t * buf, uint8_t len);
 
         Node_UID_t getNodeUidFromBuffer(uint8_t * buf, NodeID_t which=SOURCE_NODE);
@@ -137,8 +139,8 @@ class LoRaMultiHop{
 
         RouteToGatewayInfo_t shortestRoute;
 
-        uint8_t presetOwnData[MAX_PRESET_BUFFER_SIZE];
-        uint8_t presetForwardedData[MAX_FORWARD_BUFFER_SIZE];
+        uint8_t presetOwnData[AGGREGATION_BUFFER_SIZE];
+        uint8_t presetForwardedData[TX_BUFFER_SIZE];
         uint8_t presetLength = 0;
         uint8_t presetForwardedLength = 0;
         unsigned long presetTime;

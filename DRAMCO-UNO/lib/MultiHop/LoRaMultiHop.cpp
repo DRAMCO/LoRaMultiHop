@@ -19,7 +19,7 @@ void printBuffer(uint8_t * buf, uint8_t len){
 }
 
 LoRaMultiHop::LoRaMultiHop(NodeType_t nodeType){
-    this->latency = PRESET_MIN_LATENCY;
+    this->latency = AGGREGATION_TIMER_MIN;
     this->type = nodeType;
 }
 
@@ -50,8 +50,8 @@ bool LoRaMultiHop::begin(){
     if(!rf95.init()){
 #ifdef DEBUG
         Serial.println(F("failed."));
-        #endif
-return false;
+#endif
+        return false;
     }
 
     this->reconfigModem();
@@ -132,7 +132,7 @@ void LoRaMultiHop::loop(void){
 #ifdef DEBUG
             Serial.println(F("Message received."));
 #endif
-            if(this->handleMessage(this->rxBuf, len)){
+            if(this->handleAnyRxMessage(this->rxBuf, len)){
                 if(mrc != NULL){
                     //mrc(this->rxBuf+HEADER_NODE_UID_OFFSET, len-HEADER_NODE_UID_OFFSET);
                     mrc(this->rxBuf, len);
@@ -148,12 +148,12 @@ void LoRaMultiHop::loop(void){
         // This is TX: just for breacon and broadcast
         // TODO: make this clear, can this be just to the next CAD? 
         unsigned long now = DramcoUno.millisWithOffset();
-        if(this->txPending && (now > this->txTime-TX_BACKOFF_MAX)){
-            this->txTime = now + random(TX_BACKOFF_MIN,TX_BACKOFF_MAX); // If CAD detected, add 150-300ms to pending schedule time of next message
+        if(this->txPending && (now > this->txTime-COLLISION_DELAY_MAX)){
+            this->txTime = now + random(COLLISION_DELAY_MIN,COLLISION_DELAY_MAX); // If CAD detected, add 150-300ms to pending schedule time of next message
         }
         // This is presetSend: only for routed/appended algorithm
-        if(!this->presetSent && (now > this->presetTime-TX_BACKOFF_MAX)){
-           this->presetTime = now + random(TX_BACKOFF_MIN,TX_BACKOFF_MAX); // If CAD detected, add 150-300ms to pending schedule time of next message
+        if(!this->presetSent && (now > this->presetTime-COLLISION_DELAY_MAX)){
+           this->presetTime = now + random(COLLISION_DELAY_MIN,COLLISION_DELAY_MAX); // If CAD detected, add 150-300ms to pending schedule time of next message
         }
     }
     else{
@@ -162,12 +162,12 @@ void LoRaMultiHop::loop(void){
         if(this->txPending && (now > this->txTime)){
             this->txMessage(txLen);
             lateForCad = true; 
-            this->presetTime = now + random(TX_BACKOFF_MIN,TX_BACKOFF_MAX);
+            this->presetTime = now + random(COLLISION_DELAY_MIN,COLLISION_DELAY_MAX);
         }
         else{
            // handle any preset payload (routed/appended algorithm)
             if(!this->presetSent && (now > this->presetTime)){
-                this->sendPresetPayload();
+                this->sendAggregatedMessage();
                 lateForCad = true; 
             }
         }
@@ -177,6 +177,8 @@ void LoRaMultiHop::loop(void){
     DramcoUno.loop();
 
 }
+
+/*--------------- PHYSICAL RELATED METHODS ----------------- */
 
 bool LoRaMultiHop::waitCADDone( void ){
     DramcoUno.fastSleep();
@@ -195,9 +197,26 @@ bool LoRaMultiHop::waitRXAvailable(uint16_t timeout){
     return false;
 }
 
+void LoRaMultiHop::reconfigModem(void){
+    // Defaults after init are 434.0MHz, 13dBm, Bw = 125 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on
+    rf95.setFrequency(868);
+
+    ///< Bw = 500 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on. Fast+short range
+    rf95.setModemConfig(RH_RF95::Bw500Cr45Sf128);
+    rf95.setPreambleLength(PREAMBLE_DURATION*390/100); // 100 ms cycle for wakeup
+    // From my understanding of the datasheet, preamble length in symbols = cycletime * BW / 2^SF. So,
+    // for 100ms  cycle at 500 kHz and SF7, preamble = 0.100 * 500000 / 128 = 390.6 symbols.
+    // Max value 65535
+
+    // lowest transmission power possible
+    rf95.setTxPower(5, false);
+}
+
 void LoRaMultiHop::setMsgReceivedCb(MsgReceivedCb cb){
     mrc = cb;
 }
+
+/*--------------- PROTOCOL RELATED METHODS ----------------- */
 
 bool LoRaMultiHop::sendMessage(String str, MsgType_t type){
     uint8_t pLen = str.length();
@@ -322,7 +341,7 @@ void LoRaMultiHop::updateHeader(uint8_t * buf, uint8_t pLen){
 } 
 
 
-bool LoRaMultiHop::handleMessage(uint8_t * buf, uint8_t len){
+bool LoRaMultiHop::handleAnyRxMessage(uint8_t * buf, uint8_t len){
     if(len < HEADER_SIZE){
         return false;
     }
@@ -500,8 +519,8 @@ bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
     
     if(buf[HEADER_TYPE_OFFSET] == DATA_ROUTED){
         // 1. update latency
-        this->latency += PRESET_LATENCY_UP_STEP;
-        if(this->latency > PRESET_MAX_LATENCY) this->latency = PRESET_MAX_LATENCY;
+        this->latency += AGGREGATION_TIMER_UPSTEP;
+        if(this->latency > AGGREGATION_TIMER_MAX) this->latency = AGGREGATION_TIMER_MAX;
 #ifdef DEBUG
         Serial.print(F("Latency updated: "));
         Serial.println(this->latency);
@@ -509,26 +528,26 @@ bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
         // 2. append payload to preset payload
         uint8_t payloadLen = (len - HEADER_SIZE);
         // isolate node_uid and other stuff
-        this->presetForwardPayload(buf+HEADER_PAYLOAD_OFFSET, payloadLen);
+        this->prepareRxDataForAggregation(buf+HEADER_PAYLOAD_OFFSET, payloadLen);
 
-        return true;
+    }else{
+        // in case of beacon or data broadcast
+        // copy complete message to tx Buffer
+        uint8_t * pPtr = (this->txBuf);
+        memcpy(pPtr, buf, len);
+        
+        // update header 
+        this->updateHeader(buf, len);
+
+        // schedule tx
+        uint8_t backoff =  random(PREAMBLE_DURATION,3*PREAMBLE_DURATION);
+        this->txTime = DramcoUno.millisWithOffset() + backoff;
+        this->txPending = true; // Will only be true for beacon!
+        this->txLen = len;
+
     }
-
-    // in case of beacon or data broadcast
-    // copy complete message to tx Buffer
-    uint8_t * pPtr = (this->txBuf);
-    memcpy(pPtr, buf, len);
-    
-    // update header 
-    this->updateHeader(buf, len);
-
-    // schedule tx
-    uint8_t backoff =  random(PREAMBLE_DURATION,3*PREAMBLE_DURATION);
-    this->txTime = DramcoUno.millisWithOffset() + backoff;
-    this->txPending = true; // Will only be true for beacon!
-    this->txLen = len;
-
     return true;
+    
 }
 
 void LoRaMultiHop::txMessage(uint8_t len){
@@ -549,20 +568,7 @@ void LoRaMultiHop::txMessage(uint8_t len){
     this->txPending = false;
 }
 
-void LoRaMultiHop::reconfigModem(void){
-    // Defaults after init are 434.0MHz, 13dBm, Bw = 125 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on
-    rf95.setFrequency(868);
 
-    ///< Bw = 500 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on. Fast+short range
-    rf95.setModemConfig(RH_RF95::Bw500Cr45Sf128);
-    rf95.setPreambleLength(PREAMBLE_DURATION*390/100); // 100 ms cycle for wakeup
-    // From my understanding of the datasheet, preamble length in symbols = cycletime * BW / 2^SF. So,
-    // for 100ms  cycle at 500 kHz and SF7, preamble = 0.100 * 500000 / 128 = 390.6 symbols.
-    // Max value 65535
-
-    // lowest transmission power possible
-    rf95.setTxPower(5, false);
-}
 
 Node_UID_t LoRaMultiHop::getNodeUidFromBuffer(uint8_t * buf, NodeID_t which){
     switch(sizeof(Node_UID_t)) {
@@ -608,12 +614,12 @@ Msg_UID_t LoRaMultiHop::getMsgUidFromBuffer(uint8_t * buf){
 
 /* Schedule a payload to be sent
  */
-bool LoRaMultiHop::presetPayload(uint8_t * payload, uint8_t len){
+bool LoRaMultiHop::prepareOwnDataForAggregation(uint8_t * payload, uint8_t len){
     // Preset payload ready for sending; we'll wait for a message that needs to be
     // forwarded, so we can append this payload to that message
 
     // Check if forward payload does not exceed max length
-    if((len & 0x07) > MAX_PRESET_BUFFER_SIZE-HEADER_SIZE-NODE_UID_SIZE-MESG_PAYLOAD_LEN_SIZE){
+    if((len & 0x07) > AGGREGATION_BUFFER_SIZE-HEADER_SIZE-NODE_UID_SIZE-MESG_PAYLOAD_LEN_SIZE){
         return false;
     }
 #ifdef DEBUG
@@ -637,17 +643,17 @@ bool LoRaMultiHop::presetPayload(uint8_t * payload, uint8_t len){
     // schedule transmission if needed
     if(this->presetSent){ // start new window
         this->presetSent = false;
-        this->presetTime = DramcoUno.millisWithOffset() + random(this->latency - PRESET_MAX_LATENCY_RAND_WINDOW, this->latency + PRESET_MAX_LATENCY_RAND_WINDOW);
+        this->presetTime = DramcoUno.millisWithOffset() + random(this->latency - AGGREGATION_TIMER_RANDOM, this->latency + AGGREGATION_TIMER_RANDOM);
     }
     return true;
 }
 
-bool LoRaMultiHop::presetForwardPayload(uint8_t * payload, uint8_t len){
+bool LoRaMultiHop::prepareRxDataForAggregation(uint8_t * payload, uint8_t len){
     // Preset forwarded payload ready for sending; we'll wait for a message that needs to be
     // forwarded, so we can append this payload to that message
 
     // Check if forward payload does not exceed max length
-    if(len > MAX_FORWARD_BUFFER_SIZE-HEADER_SIZE-NODE_UID_SIZE-MESG_PAYLOAD_LEN_SIZE){
+    if(len > TX_BUFFER_SIZE-HEADER_SIZE-NODE_UID_SIZE-MESG_PAYLOAD_LEN_SIZE){
 #ifdef DEBUG
         Serial.println(F("Max. message length exceeded. Extra payload will be dropped."));
 #endif
@@ -666,21 +672,21 @@ bool LoRaMultiHop::presetForwardPayload(uint8_t * payload, uint8_t len){
     // schedule transmission if needed
     if(this->presetSent){ // start new window
         this->presetSent = false;
-        this->presetTime = DramcoUno.millisWithOffset() + random(this->latency - PRESET_MAX_LATENCY_RAND_WINDOW, this->latency + PRESET_MAX_LATENCY_RAND_WINDOW);
+        this->presetTime = DramcoUno.millisWithOffset() + random(this->latency - AGGREGATION_TIMER_RANDOM, this->latency + AGGREGATION_TIMER_RANDOM);
     }
 
     return true;
 }
 
-bool LoRaMultiHop::sendPresetPayload( void ){
+bool LoRaMultiHop::sendAggregatedMessage( void ){
     if(this->presetSent){
         return true;
     }
     this->presetSent = true;
 
   
-    if(this->latency-PRESET_MIN_LATENCY < PRESET_LATENCY_DOWN_STEP) this->latency = PRESET_MIN_LATENCY;
-    else this->latency -= PRESET_LATENCY_DOWN_STEP; 
+    if(this->latency-AGGREGATION_TIMER_MIN < AGGREGATION_TIMER_DOWNSTEP) this->latency = AGGREGATION_TIMER_MIN;
+    else this->latency -= AGGREGATION_TIMER_DOWNSTEP; 
     Serial.print(F("Latency updated: "));
     Serial.println(this->latency);
 
