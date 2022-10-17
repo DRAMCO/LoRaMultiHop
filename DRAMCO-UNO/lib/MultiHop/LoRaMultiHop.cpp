@@ -1,5 +1,6 @@
 #include "LoRaMultiHop.h"
 #include "Dramco-UNO-Sensors.h"
+#include "CircBuffer.h"
 
 // Singleton instance of the radio driver
 RH_RF95 rf95(PIN_MODEM_SS, PIN_MODEM_INT);
@@ -25,6 +26,12 @@ LoRaMultiHop::LoRaMultiHop(NodeType_t nodeType){
 
 bool LoRaMultiHop::begin(){
 #ifdef DEBUG
+    Serial.print(F("Initializing neighbours table... "));
+#endif
+    this->neighbours = (RouteToGatewayInfo_t *)malloc(sizeof(RouteToGatewayInfo_t)*MAX_NUMBER_OF_NEIGHBOURS);
+
+#ifdef DEBUG
+    Serial.println(F("done."));
     Serial.print(F("Initializing flood buffer... "));
 #endif
 
@@ -78,8 +85,6 @@ bool LoRaMultiHop::begin(){
 #ifdef DEBUG
     Serial.println(uid, HEX);
 #endif
-
-    this->shortestRoute.lastSnr = -128;
     
     return true;
 }
@@ -263,7 +268,10 @@ bool LoRaMultiHop::sendMessage(uint8_t * payload, uint8_t len, MsgType_t type){
 
     switch(type) {
         case GATEWAY_BEACON:{
-            if(sizeof(Node_UID_t)>1){
+            this->setFieldInBuffer(BROADCAST_UID, this->txBuf, HEADER_NEXT_UID_OFFSET, sizeof(Node_UID_t));
+            this->setFieldInBuffer(this->uid, this->txBuf, HEADER_PREVIOUS_UID_OFFSET, sizeof(Node_UID_t));
+            this->setFieldInBuffer(0, this->txBuf, HEADER_LQI_OFFSET, sizeof(Msg_LQI_t));
+            /*if(sizeof(Node_UID_t)>1){
                 this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(BROADCAST_UID >> 8);
                 this->txBuf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(BROADCAST_UID & 0x00FF);
                 this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = (uint8_t)(this->uid >> 8);
@@ -272,19 +280,19 @@ bool LoRaMultiHop::sendMessage(uint8_t * payload, uint8_t len, MsgType_t type){
             else{
                 this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(BROADCAST_UID);
                 this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = this->uid;
-            }
+            }*/
         } break;
 
         case DATA_ROUTED:{
             if(sizeof(Node_UID_t)>1){
                 this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = (uint8_t)(this->uid >> 8);
                 this->txBuf[HEADER_PREVIOUS_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
-                this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(this->shortestRoute.viaNode >> 8);
-                this->txBuf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(this->shortestRoute.viaNode & 0x00FF);
+                this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(this->bestRoute->viaNode >> 8);
+                this->txBuf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(this->bestRoute->viaNode & 0x00FF);
             }
             else{
                 this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = this->uid;
-                this->txBuf[HEADER_NEXT_UID_OFFSET] = this->shortestRoute.viaNode;
+                this->txBuf[HEADER_NEXT_UID_OFFSET] = this->bestRoute->viaNode;
             }
         } break;
 
@@ -315,28 +323,12 @@ void LoRaMultiHop::updateHeader(uint8_t * buf, uint8_t pLen){
     // The following if statement is only needed when HEADER_NEXT_UID_OFFSET == HEADER_PREVIOUS_UID_OFFSET
     // otherwise, the order of operations does not matter
     if(this->txBuf[HEADER_TYPE_OFFSET]==GATEWAY_BEACON){
-        if(sizeof(Node_UID_t)>1){
-            this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(this->shortestRoute.viaNode >> 8);
-            this->txBuf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(this->shortestRoute.viaNode & 0x00FF);
-            this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = (uint8_t)(this->uid >> 8);
-            this->txBuf[HEADER_PREVIOUS_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
-        }
-        else{
-            this->txBuf[HEADER_NEXT_UID_OFFSET] = this->shortestRoute.viaNode;
-            this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = this->uid;
-        }
+        this->setFieldInBuffer(this->bestRoute->viaNode, this->txBuf, HEADER_NEXT_UID_OFFSET, sizeof(Node_UID_t));
+        this->setFieldInBuffer(this->uid, this->txBuf, HEADER_PREVIOUS_UID_OFFSET, sizeof(Node_UID_t));
     }
     else{
-        if(sizeof(Node_UID_t)>1){
-            this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = (uint8_t)(this->uid >> 8);
-            this->txBuf[HEADER_PREVIOUS_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
-            this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(this->shortestRoute.viaNode >> 8);
-            this->txBuf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(this->shortestRoute.viaNode & 0x00FF);
-        }
-        else{
-            this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = this->uid;
-            this->txBuf[HEADER_NEXT_UID_OFFSET] = this->shortestRoute.viaNode;
-        }
+        this->setFieldInBuffer(this->bestRoute->viaNode, this->txBuf, HEADER_PREVIOUS_UID_OFFSET, sizeof(Node_UID_t));
+        this->setFieldInBuffer(this->uid, this->txBuf, HEADER_NEXT_UID_OFFSET, sizeof(Node_UID_t));
     }
 } 
 
@@ -358,7 +350,7 @@ bool LoRaMultiHop::handleAnyRxMessage(uint8_t * buf, uint8_t len){
     Serial.println();
 #endif
 
-    Serial.print("Type: ");
+    Serial.print(F("Type: "));
     Serial.print(buf[HEADER_TYPE_OFFSET]);
     switch(buf[HEADER_TYPE_OFFSET]){
         // BEACON: Gateway beacons are used to determine the shortest path (least hops) to the gateway
@@ -367,17 +359,34 @@ bool LoRaMultiHop::handleAnyRxMessage(uint8_t * buf, uint8_t len){
             if(this->uid == GATEWAY_UID){
                 return false; // we got our own beacon back
             }
-            Node_UID_t receivedFrom = this->getNodeUidFromBuffer(buf, PREVIOUS_NODE);
+            Node_UID_t receivedFrom;
+            this->getFieldFromBuffer((BaseType_t*)(&receivedFrom), buf, HEADER_PREVIOUS_UID_OFFSET, sizeof(Node_UID_t));
             uint8_t hops = buf[HEADER_HOPS_OFFSET];
-            Msg_UID_t msgId = this->getMsgUidFromBuffer(buf);
-            bool routeUpdated = false;
-            if(this->shortestRoute.lastGatewayBeacon != msgId){
+            Msg_UID_t msgId;
+            Msg_LQI_t lqiCum;
+            this->getFieldFromBuffer((BaseType_t*)(&lqiCum), buf, HEADER_LQI_OFFSET, sizeof(Msg_LQI_t));
+            this->getFieldFromBuffer((BaseType_t*)(&msgId), buf,HEADER_MESG_UID_OFFSET, sizeof(Msg_UID_t));
+            //bool routeUpdated = false;
+
+            RouteToGatewayInfo_t neighbour;
+            neighbour.lastGatewayBeacon = msgId;
+            neighbour.hopsToGateway = hops;
+            neighbour.viaNode = receivedFrom;
+            neighbour.lastSnr = rf95.lastSnr();
+            neighbour.lastRssi = rf95.lastRssi();
+            neighbour.cumLqi = computeCummulativeLQI(lqiCum, neighbour.lastSnr);
+            neighbour.isBest = false;
+            this->updateNeighbours(neighbour);
+            this->updateRouteToGateway();
+            this->printNeighbours();
+            /*if(this->shortestRoute.lastGatewayBeacon != msgId){
                 // new gateway beacon -> route to gateway info needs to be updated
                 this->shortestRoute.lastGatewayBeacon = msgId;
                 this->shortestRoute.hopsToGateway = hops;
                 this->shortestRoute.viaNode = receivedFrom;
                 this->shortestRoute.lastSnr = rf95.lastSnr();
                 this->shortestRoute.lastRssi = rf95.lastRssi();
+                this->shortestRoute.cumLqi = lqiCum;
                 routeUpdated = true;
             }
             else{
@@ -424,7 +433,7 @@ bool LoRaMultiHop::handleAnyRxMessage(uint8_t * buf, uint8_t len){
             Serial.print(F("SNR: "));
             Serial.println(rf95.lastSnr());
 #endif
-
+*/
             this->forwardMessage(buf, len);
             return false; // no user callback
         } break;
@@ -443,8 +452,9 @@ bool LoRaMultiHop::handleAnyRxMessage(uint8_t * buf, uint8_t len){
         // ROUTED: To end node (gateway), only forward according to routing 
         case DATA_ROUTED:{
             Serial.println(F(" = DATA ROUTED"));
-            Node_UID_t sentTo = this->getNodeUidFromBuffer(buf, NEXT_NODE);
-            Node_UID_t sentFrom = this->getNodeUidFromBuffer(buf, SOURCE_NODE);
+            Node_UID_t sentTo, sentFrom;
+            this->getFieldFromBuffer((BaseType_t *)(&sentTo), buf, HEADER_NEXT_UID_OFFSET, sizeof(Node_UID_t));
+            this->getFieldFromBuffer((BaseType_t *)(&sentFrom), buf, HEADER_SIZE+PAYLOAD_NODE_UID_OFFSET, sizeof(Node_UID_t));
             Serial.print("To: 0x");
             Serial.println(sentTo, HEX);
             Serial.print("From: 0x");
@@ -497,9 +507,17 @@ bool LoRaMultiHop::forwardMessage(uint8_t * buf, uint8_t len){
     if(len < HEADER_SIZE){
         return false;
     }
+
+    Node_UID_t nodeUid;
+    Msg_UID_t msgUid;
+    getFieldFromBuffer((BaseType_t *)(&nodeUid), buf, HEADER_PREVIOUS_UID_OFFSET, sizeof(Node_UID_t));
+    getFieldFromBuffer((BaseType_t *)(&msgUid), buf, HEADER_MESG_UID_OFFSET, sizeof(Node_UID_t));
+
     MsgInfo_t mInfo;
-    mInfo.nodeUid = getNodeUidFromBuffer(buf);
-    mInfo.msgUid = getMsgUidFromBuffer(buf);
+    mInfo.nodeUid = nodeUid;
+    mInfo.nodeUid = msgUid;
+    //mInfo.nodeUid = getNodeUidFromBuffer(buf);
+    //mInfo.msgUid = getMsgUidFromBuffer(buf);
 
     if(this->floodBuffer.find(mInfo) == CB_SUCCESS){
         Serial.println(F("none/duplicate"));
@@ -568,8 +586,7 @@ void LoRaMultiHop::txMessage(uint8_t len){
     this->txPending = false;
 }
 
-
-
+/*
 Node_UID_t LoRaMultiHop::getNodeUidFromBuffer(uint8_t * buf, NodeID_t which){
     switch(sizeof(Node_UID_t)) {
         case 1: {
@@ -610,7 +627,7 @@ Node_UID_t LoRaMultiHop::getNodeUidFromBuffer(uint8_t * buf, NodeID_t which){
 
 Msg_UID_t LoRaMultiHop::getMsgUidFromBuffer(uint8_t * buf){
     return (Msg_UID_t)(buf[HEADER_MESG_UID_OFFSET]<<8 | buf[HEADER_MESG_UID_OFFSET+1]);
-}
+}*/
 
 /* Schedule a payload to be sent
  */
@@ -718,4 +735,116 @@ bool LoRaMultiHop::sendAggregatedMessage( void ){
     this->presetForwardedLength = 0;
 
     return rv;
+}
+
+bool LoRaMultiHop::getFieldFromBuffer(BaseType_t * field, uint8_t * buf, uint8_t fieldOffset, size_t size){
+    BaseType_t rv = 0;
+    if(size == 0){
+        return false;
+    }
+
+    if(size > sizeof(BaseType_t)){
+        return false;
+    }
+
+    for(uint8_t index=fieldOffset; index<fieldOffset+size; index++){
+        rv<<=8;
+        rv |= buf[index];
+    }
+    *field = rv;
+    return true;
+}
+
+bool LoRaMultiHop::setFieldInBuffer(BaseType_t field, uint8_t * buf, uint8_t fieldOffset, size_t size){
+    if(size == 0){
+        return false;
+    }
+
+    if(size > sizeof(BaseType_t)){
+        return false;
+    }
+
+    // TODO: check buf length?
+
+    BaseType_t temp = field;
+    for(uint8_t index=fieldOffset+size-1; index>=fieldOffset; index--){
+        buf[index] = temp & 0xFF;
+        temp >>= 8;
+    }
+    return false;
+}
+
+bool LoRaMultiHop::updateNeighbours(RouteToGatewayInfo_t &neighbour){
+    bool neighbourInList = false;
+    for(uint8_t i=0; i<this->numberOfNeighbours; i++){ // look up neighbour in the list
+        if(neighbour.viaNode == this->neighbours[i].viaNode){ // neighbour is in the list -> update info
+            this->neighbours[i] = neighbour;
+            neighbourInList = true;
+#ifdef DEBUG
+            Serial.println(F("Updated neighbour table."));
+#endif
+            return true;
+        }
+    }
+    if(!neighbourInList){ // -> add neighbour to the list if there's still room
+        if(this->numberOfNeighbours < MAX_NUMBER_OF_NEIGHBOURS){
+            this->neighbours[this->numberOfNeighbours] = neighbour;
+            this->numberOfNeighbours++;
+#ifdef DEBUG
+            Serial.println(F("Added neighbour to table."));
+#endif
+            return true;
+        }
+        // TODO: else -> replace worst neighbour if this one is better
+    }
+    return false;
+}
+
+Msg_LQI_t LoRaMultiHop::computeCummulativeLQI(Msg_LQI_t previousCummulativeLQI, int8_t snr){
+    return previousCummulativeLQI + (20-snr); // TODO: explain 20
+}
+
+void LoRaMultiHop::updateRouteToGateway(){
+    uint8_t idxLowestLQI = 0;
+    uint8_t numberOfHopsLowestLQI = this->neighbours[0].hopsToGateway;
+    Msg_LQI_t lowestLQI = this->neighbours[0].cumLqi;
+    for(uint8_t i=1; i<this->numberOfNeighbours; i++){
+        if(this->neighbours[i].cumLqi < lowestLQI){
+            idxLowestLQI = i;
+            numberOfHopsLowestLQI = this->neighbours[i].hopsToGateway;
+            lowestLQI = this->neighbours[i].cumLqi;
+        }
+        else{
+            if(this->neighbours[i].cumLqi == lowestLQI){
+                if(this->neighbours[i].hopsToGateway < numberOfHopsLowestLQI){
+                    idxLowestLQI = i;
+                    numberOfHopsLowestLQI = this->neighbours[i].hopsToGateway;
+                    lowestLQI = this->neighbours[i].cumLqi;
+                }
+            }
+        }
+    }
+
+    this->neighbours[idxLowestLQI].isBest = true;
+    this->bestRoute = &this->neighbours[idxLowestLQI];
+}
+
+void LoRaMultiHop::printNeighbours(){
+#ifdef DEBUG
+    Serial.println(F("| VIANODE | SNR | CUMLQI | HOPS | BEST |"));
+    Serial.println(F("+---------+-----+--------+------+------+"));
+    char c[32];
+    for(uint8_t i=0; i<this->numberOfNeighbours; i++){
+        Serial.print(F("| 0x"));
+        sprintf(c, "%02x    | %3d | %6d | %4d", this->neighbours[i].viaNode, this->neighbours[i].lastSnr, this->neighbours[i].cumLqi, this->neighbours[i].hopsToGateway);
+        Serial.print(c);
+        if(this->neighbours[i].isBest){
+            Serial.println(F(" |  **  |"));
+        }
+        else{
+            Serial.println(F(" |      |"));
+        }
+    }
+    Serial.println();
+#endif
 }
