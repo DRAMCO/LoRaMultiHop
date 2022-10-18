@@ -119,7 +119,7 @@ void loop(){
     Serial.println(NODE_UID, HEX);
   }
   if(DramcoUno.processInterrupt() || autoToggle){
-    multihop.sendMessage("UUUU", GATEWAY_BEACON);
+    multihop.sendMessage("UUUU", MESG_ROUTE_DISCOVERY);
     DramcoUno.interruptOnButtonPress();
   }
 #endif

@@ -72,9 +72,9 @@ typedef int16_t Msg_LQI_t;
 #define PAYLOAD_DATA_OFFSET             (PAYLOAD_LEN_OFFSET + MESG_PAYLOAD_LEN_SIZE)
 
 typedef enum msgTypes{
-    GATEWAY_BEACON = 0x01,
-    DATA_BROADCAST = 0x02,
-    DATA_ROUTED = 0x03
+    MESG_ROUTE_DISCOVERY = 0x01,
+    MESG_BROADCAST = 0x02,
+    MESG_ROUTED = 0x03
 } MsgType_t;
 
 typedef enum nodeTypes{
@@ -121,15 +121,24 @@ class LoRaMultiHop{
         }
 
     private:
-        void updateHeader(uint8_t * buf, uint8_t len);
+        bool handleAnyRxMessage(uint8_t * buf, uint8_t len);
+        bool handleRouteDiscoveryMessage(uint8_t * buf, uint8_t len);
+        bool handleRoutedMessage(uint8_t * buf, uint8_t len);
+        bool handleBroadcastMessage(uint8_t * buf, uint8_t len);
+
+        void updateRouteDiscoveryHeader(uint8_t * buf, uint8_t len);
         void initHeader(Msg_UID_t uid);
         void txMessage(uint8_t len);
 
         bool waitCADDone( void );
         bool waitRXAvailable(uint16_t timeout);
 
-        bool handleAnyRxMessage(uint8_t * buf, uint8_t len);
-        bool forwardMessage(uint8_t * buf, uint8_t len);
+
+        bool checkFloodBufferForMessage(uint8_t * buf, uint8_t len);
+
+        bool addMessageToFloodBuffer(uint8_t * buf, uint8_t len);
+
+        bool forwardRouteDiscoveryMessage(uint8_t * buf, uint8_t len);
 
         //Node_UID_t getNodeUidFromBuffer(uint8_t * buf, NodeID_t which=SOURCE_NODE);
         //Msg_UID_t getMsgUidFromBuffer(uint8_t * buf);
