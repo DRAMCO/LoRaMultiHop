@@ -14,8 +14,8 @@
 #define CAD_DELAY_MIN                       CAD_DELAY - CAD_DELAY_RANDOM/2
 #define CAD_DELAY_MAX                       CAD_DELAY + CAD_DELAY_RANDOM/2
 
-#define AGGREGATION_TIMER_MIN               MEASURE_INTERVAL/2-10000 // In ms
-#define AGGREGATION_TIMER_MAX               MEASURE_INTERVAL/2+10000 // In ms
+#define AGGREGATION_TIMER_MIN               (MEASURE_INTERVAL/2)-10000 // In ms
+#define AGGREGATION_TIMER_MAX               (MEASURE_INTERVAL/2)+10000 // In ms
 #define AGGREGATION_TIMER_RANDOM            1000 // Random window around PRESET_MAX_LATENCY
 #define AGGREGATION_TIMER_UPSTEP            10000
 #define AGGREGATION_TIMER_DOWNSTEP          0

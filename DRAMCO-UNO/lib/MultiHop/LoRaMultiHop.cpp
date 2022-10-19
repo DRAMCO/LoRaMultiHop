@@ -266,11 +266,7 @@ void LoRaMultiHop::txMessage(uint8_t len){
 
 bool LoRaMultiHop::getFieldFromBuffer(BaseType_t * field, uint8_t * buf, uint8_t fieldOffset, size_t size){
     BaseType_t rv = 0;
-    if(size == 0){
-        return false;
-    }
-
-    if(size > sizeof(BaseType_t)){
+    if(size == 0 || size > sizeof(BaseType_t)){
         return false;
     }
 
@@ -283,11 +279,7 @@ bool LoRaMultiHop::getFieldFromBuffer(BaseType_t * field, uint8_t * buf, uint8_t
 }
 
 bool LoRaMultiHop::setFieldInBuffer(BaseType_t field, uint8_t * buf, uint8_t fieldOffset, size_t size){
-    if(size == 0){
-        return false;
-    }
-
-    if(size > sizeof(BaseType_t)){
+    if(size == 0 || size > sizeof(BaseType_t)){
         return false;
     }
 
@@ -298,7 +290,7 @@ bool LoRaMultiHop::setFieldInBuffer(BaseType_t field, uint8_t * buf, uint8_t fie
         buf[index] = temp & 0xFF;
         temp >>= 8;
     }
-    return false;
+    return true;
 }
 
 
@@ -493,9 +485,11 @@ bool LoRaMultiHop::updateNeighbours(RouteToGatewayInfo_t &neighbour){
         if(neighbour.viaNode == this->neighbours[i].viaNode){ // neighbour is in the list -> update info
             this->neighbours[i] = neighbour;
             neighbourInList = true;
+#pragma region DEBUG
 #ifdef DEBUG
             Serial.println(F("Updated neighbour table."));
 #endif
+#pragma endregion
             return true;
         }
     }
@@ -503,9 +497,11 @@ bool LoRaMultiHop::updateNeighbours(RouteToGatewayInfo_t &neighbour){
         if(this->numberOfNeighbours < MAX_NUMBER_OF_NEIGHBOURS){
             this->neighbours[this->numberOfNeighbours] = neighbour;
             this->numberOfNeighbours++;
+#pragma region DEBUG
 #ifdef DEBUG
             Serial.println(F("Added neighbour to table."));
 #endif
+#pragma endregion
             return true;
         }
         // TODO: else -> replace worst neighbour if this one is better
@@ -514,7 +510,7 @@ bool LoRaMultiHop::updateNeighbours(RouteToGatewayInfo_t &neighbour){
 }
 
 Msg_LQI_t LoRaMultiHop::computeCummulativeLQI(Msg_LQI_t previousCummulativeLQI, int8_t snr){
-    return previousCummulativeLQI + (20-snr); // TODO: explain 20
+    return previousCummulativeLQI + (RH_RF95_MAX_SNR-snr); // TODO: explain 20
 }
 
 void LoRaMultiHop::updateRouteToGateway(){
@@ -617,34 +613,29 @@ bool LoRaMultiHop::forwardRouteDiscoveryMessage(uint8_t * buf, uint8_t len){
         return false;
     }
 
-
-    if(buf[HEADER_TYPE_OFFSET] == MESG_ROUTED){
-        // 1. update latency
-        
-
-    }else{
-        // in case of beacon or data broadcast
-        // copy complete message to tx Buffer
-        uint8_t * pPtr = (this->txBuf);
-        memcpy(pPtr, buf, len);
-        
-        // update header 
-        this->updateRouteDiscoveryHeader(buf, len);
-
-        // schedule tx
-        uint8_t backoff =  random(PREAMBLE_DURATION,3*PREAMBLE_DURATION);
-        this->txTime = DramcoUno.millisWithOffset() + backoff;
-        this->txPending = true; // Will only be true for beacon!
-        this->txLen = len;
-
-    }
-    return true;
+    // In case of beacon or data broadcast
+    // copy complete message to tx Buffer
+    uint8_t * pPtr = (this->txBuf);
+    memcpy(pPtr, buf, len);
     
+    // Update header 
+    this->updateRouteDiscoveryHeader(buf, len);
+
+    // Schedule tx
+    uint8_t backoff =  random(PREAMBLE_DURATION,3*PREAMBLE_DURATION);
+    this->txTime = DramcoUno.millisWithOffset() + backoff;
+    this->txPending = true; 
+    this->txLen = len;
+
+    return true;
 }
 
 void LoRaMultiHop::updateRouteDiscoveryHeader(uint8_t * buf, uint8_t pLen){
-    // set hop count to 0
+    // Increase hop count
     this->txBuf[HEADER_HOPS_OFFSET]++;
+
+    // Adjust LQI
+    this->setFieldInBuffer(this->bestRoute->cumLqi, this->txBuf, HEADER_LQI_OFFSET, sizeof(Msg_LQI_t));
 
     // The following if statement is only needed when HEADER_NEXT_UID_OFFSET == HEADER_PREVIOUS_UID_OFFSET
     // otherwise, the order of operations does not matter

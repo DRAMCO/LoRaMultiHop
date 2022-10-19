@@ -210,6 +210,8 @@
 #define RH_RF95_PA_DAC_DISABLE                        0x04
 #define RH_RF95_PA_DAC_ENABLE                         0x07
 
+#define RH_RF95_MAX_SNR                               20
+
 /////////////////////////////////////////////////////////////////////
 /// \class RH_RF95 RH_RF95.h <RH_RF95.h>
 /// \brief Driver to send and receive unaddressed, unreliable datagrams via a LoRa 
