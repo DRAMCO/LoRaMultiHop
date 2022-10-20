@@ -43,10 +43,10 @@ bool LoRaMultiHop::begin(){
 #endif
 #pragma endregion
 
-    this->floodBuffer.init(8);
+    this->floodBuffer.init(MESSAGE_FLOODBUFFER_SIZE);
     // prefill buffer (otherwise "CircBuffer::find()"" fails miserably and I've yet to fix it)
     MsgInfo_t dummy;
-    for(uint8_t i=0; i<8; i++){
+    for(uint8_t i=0; i<MESSAGE_FLOODBUFFER_SIZE; i++){
         this->floodBuffer.put(dummy);
     }
 #pragma region DEBUG
@@ -108,10 +108,7 @@ bool LoRaMultiHop::begin(){
 
 /*--------------- LOOP ----------------- */
 void LoRaMultiHop::loop(void){
-    bool lateForCad = false; 
-
-    if(!lateForCad){
-        rf95.sleep();
+    rf95.sleep();
 
 #ifdef VERY_LOW_POWER
 #pragma region DEBUG
@@ -136,16 +133,18 @@ void LoRaMultiHop::loop(void){
 #ifndef VERY_LOW_POWER
         DramcoUno.sleep(random(10,PREAMBLE_DURATION-5), true);
 #endif
-    }
+    
 #ifdef DEBUG_LED
     digitalWrite(DRAMCO_UNO_LED_NAME, HIGH);
 #endif
     rf95.setModeCad(); // listen for channel activity
     
     if(!this->waitCADDone()){
+#pragma region DEBUG
 #ifdef DEBUG
         Serial.println(F("CAD failed"));
 #endif
+#pragma endregion
     };
 
     // if channel activity has been detected during the previous CAD - enable RX and receive message
@@ -153,11 +152,12 @@ void LoRaMultiHop::loop(void){
         rf95.setModeRx();
         rf95.waitAvailableTimeout(random(3*PREAMBLE_DURATION,6*PREAMBLE_DURATION));
         uint8_t len = RH_RF95_MAX_MESSAGE_LEN;
-        lateForCad = true; 
         if(rf95.recv(this->rxBuf, &len)){
+#pragma region DEBUG
 #ifdef DEBUG
             Serial.println(F("Message received."));
 #endif
+#pragma endregion
             if(this->handleAnyRxMessage(this->rxBuf, len)){
                 if(mrc != NULL){
                     //mrc(this->rxBuf+HEADER_NODE_UID_OFFSET, len-HEADER_NODE_UID_OFFSET);
@@ -187,14 +187,12 @@ void LoRaMultiHop::loop(void){
         unsigned long now = DramcoUno.millisWithOffset();
         if(this->txPending && (now > this->txTime)){
             this->txMessage(txLen);
-            lateForCad = true; 
             this->presetTime = now + random(COLLISION_DELAY_MIN,COLLISION_DELAY_MAX);
         }
         else{
            // handle any preset payload (routed/appended algorithm)
             if(!this->presetSent && (now > this->presetTime)){
                 this->sendAggregatedMessage();
-                lateForCad = true; 
             }
         }
         rf95.sleep();
@@ -477,6 +475,8 @@ bool LoRaMultiHop::addMessageToFloodBuffer(uint8_t * buf, uint8_t len){
     mInfo.nodeUid = msgUid;
 
     this->floodBuffer.put(mInfo);
+
+    return true;
 }
 
 bool LoRaMultiHop::updateNeighbours(RouteToGatewayInfo_t &neighbour){

@@ -5,7 +5,7 @@
 #include <RH_RF95.h>
 #include "CircBuffer.h"
 
-#define MAX_NUMBER_OF_NEIGHBOURS            8
+
 #define PREAMBLE_DURATION                   200.0 // In ms
 
 #define CAD_STABILIZE                       30 // In ms
@@ -14,8 +14,8 @@
 #define CAD_DELAY_MIN                       CAD_DELAY - CAD_DELAY_RANDOM/2
 #define CAD_DELAY_MAX                       CAD_DELAY + CAD_DELAY_RANDOM/2
 
-#define AGGREGATION_TIMER_MIN               (MEASURE_INTERVAL/2)-10000 // In ms
-#define AGGREGATION_TIMER_MAX               (MEASURE_INTERVAL/2)+10000 // In ms
+#define AGGREGATION_TIMER_MIN               (MEASURE_INTERVAL/2)-10000L // In ms
+#define AGGREGATION_TIMER_MAX               (MEASURE_INTERVAL/2)+10000L // In ms
 #define AGGREGATION_TIMER_RANDOM            1000 // Random window around PRESET_MAX_LATENCY
 #define AGGREGATION_TIMER_UPSTEP            10000
 #define AGGREGATION_TIMER_DOWNSTEP          0
@@ -26,8 +26,8 @@
 #define COLLISION_DELAY_MAX                 COLLISION_DELAY-COLLISION_DELAY_RANDOM/2
 
 
-#define AGGREGATION_BUFFER_SIZE             16     // Max preset buffer size 
-#define TX_BUFFER_SIZE                      3*AGGREGATION_BUFFER_SIZE     // Max preset buffer size 
+#define AGGREGATION_BUFFER_SIZE             1     // Max preset buffer size 
+#define TX_BUFFER_SIZE                      1*AGGREGATION_BUFFER_SIZE     // Max preset buffer size 
 
 
 #define PIN_ENABLE_3V3                      8
@@ -70,6 +70,9 @@ typedef int16_t Msg_LQI_t;
 #define PAYLOAD_NODE_UID_OFFSET         0
 #define PAYLOAD_LEN_OFFSET              (PAYLOAD_NODE_UID_OFFSET + NODE_UID_SIZE)
 #define PAYLOAD_DATA_OFFSET             (PAYLOAD_LEN_OFFSET + MESG_PAYLOAD_LEN_SIZE)
+
+#define MESSAGE_FLOODBUFFER_SIZE         2
+#define MAX_NUMBER_OF_NEIGHBOURS         2
 
 typedef enum msgTypes{
     MESG_ROUTE_DISCOVERY = 0x01,
@@ -170,7 +173,7 @@ class LoRaMultiHop{
         uint8_t presetForwardedLength = 0;
         unsigned long presetTime;
         bool presetSent = true;
-        uint16_t latency;
+        uint32_t latency;
 
         CircBuffer floodBuffer;
 };
