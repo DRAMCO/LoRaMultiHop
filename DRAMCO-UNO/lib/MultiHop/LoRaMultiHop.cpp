@@ -653,6 +653,7 @@ bool LoRaMultiHop::forwardRouteDiscoveryMessage(uint8_t * buf, uint8_t len){
     return true;
 }
 
+//TODO: check this nekeer guus
 void LoRaMultiHop::updateRouteDiscoveryHeader(uint8_t * buf, uint8_t pLen){
     // Increase hop count
     this->txBuf[HEADER_HOPS_OFFSET]++;
