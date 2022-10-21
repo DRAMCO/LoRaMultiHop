@@ -108,8 +108,6 @@ void CircBuffer::print(void){
 
     Serial.println("Buf:");
     for(uint8_t i=0; i<this->length; i++){
-        Serial.print(this->buffer[i].nodeUid, HEX);
-        Serial.print(" - ");
         Serial.println(this->buffer[i].msgUid, HEX);
     }
 }

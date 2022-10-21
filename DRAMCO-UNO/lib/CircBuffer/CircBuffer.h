@@ -6,7 +6,7 @@
 #define MAX_BUF_SIZE 16
 
 typedef struct msgInfo{
-    uint16_t nodeUid;
+  //  uint16_t nodeUid;
     uint16_t msgUid;
 } MsgInfo_t;
 

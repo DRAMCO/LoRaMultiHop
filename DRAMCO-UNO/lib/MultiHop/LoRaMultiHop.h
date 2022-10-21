@@ -50,19 +50,19 @@ typedef int16_t Msg_LQI_t;
 #define MESG_PAYLOAD_LEN_SIZE       1
 #define MESG_LQI_SIZE               sizeof(Msg_LQI_t)
 
-// +----------+------+------+-------------------------+----------+--------------+---------+-------------+----------------------+-----------------+
-// |    0     |  2   |  3   |            4            |    6     |      8       |    9    |             |                      |                 |
-// +----------+------+------+-------------------------+----------+--------------+---------+-------------+----------------------+-----------------+
-// | MESG_UID | TYPE | HOPS | NEXT_UID = PREVIOUS_UID | NODE_UID | PAYLOAD_SIZE | PAYLOAD | (EXTRA_UID) | (EXTRA_PAYLOAD_SIZE) | (EXTRA_PAYLOAD) |
-// +----------+------+------+-------------------------+----------+--------------+---------+-------------+----------------------+-----------------+
-
+// +----------+------+------+-------------+-------------------------+----------+--------------+---------+-------------+----------------------+-----------------+
+// |    0     |  2   |  3   |      4      |            6            |    8     |      9       |    9    |             |                      |                 |
+// +----------+------+------+-------------+-------------------------+----------+--------------+---------+-------------+----------------------+-----------------+
+// | MESG_UID | TYPE | HOPS | CUMMUL. LQI | NEXT_UID = PREVIOUS_UID | NODE_UID | PAYLOAD_SIZE | PAYLOAD | (EXTRA_UID) | (EXTRA_PAYLOAD_SIZE) | (EXTRA_PAYLOAD) |
+// +----------+------+------+-------------+-------------------------+----------+--------------+---------+-------------+----------------------+-----------------+
+//                                                                  | Payload starts here
 
 #define HEADER_MESG_UID_OFFSET          0
 #define HEADER_TYPE_OFFSET              (HEADER_MESG_UID_OFFSET + MESG_UID_SIZE)
 #define HEADER_HOPS_OFFSET              (HEADER_TYPE_OFFSET + MESG_TYPE_SIZE)
-#define HEADER_LQI_OFFSET               (HEADER_HOPS_OFFSET + MESG_LQI_SIZE)
-#define HEADER_NEXT_UID_OFFSET          (HEADER_LQI_OFFSET + MESG_HOPS_SIZE)     // 3 + 1 = 4
-#define HEADER_PREVIOUS_UID_OFFSET      (HEADER_LQI_OFFSET + MESG_HOPS_SIZE)
+#define HEADER_LQI_OFFSET               (HEADER_HOPS_OFFSET + MESG_HOPS_SIZE)
+#define HEADER_NEXT_UID_OFFSET          (HEADER_LQI_OFFSET + MESG_LQI_SIZE)     // 3 + 1 = 4
+#define HEADER_PREVIOUS_UID_OFFSET      (HEADER_LQI_OFFSET + MESG_LQI_SIZE)
 //#define HEADER_PREVIOUS_UID_OFFSET    (HEADER_NEXT_UID_OFFSET + MESG_TYPE_SIZE) // saves 2 bytes
 #define HEADER_PAYLOAD_OFFSET           (HEADER_PREVIOUS_UID_OFFSET + NODE_UID_SIZE)
 #define HEADER_SIZE                     HEADER_PAYLOAD_OFFSET
@@ -71,8 +71,8 @@ typedef int16_t Msg_LQI_t;
 #define PAYLOAD_LEN_OFFSET              (PAYLOAD_NODE_UID_OFFSET + NODE_UID_SIZE)
 #define PAYLOAD_DATA_OFFSET             (PAYLOAD_LEN_OFFSET + MESG_PAYLOAD_LEN_SIZE)
 
-#define MESSAGE_FLOODBUFFER_SIZE         2
-#define MAX_NUMBER_OF_NEIGHBOURS         2
+#define MESSAGE_FLOODBUFFER_SIZE         8
+#define MAX_NUMBER_OF_NEIGHBOURS         8
 
 typedef enum msgTypes{
     MESG_ROUTE_DISCOVERY = 0x01,
@@ -138,8 +138,8 @@ class LoRaMultiHop{
 
 
         bool checkFloodBufferForMessage(uint8_t * buf, uint8_t len);
-
         bool addMessageToFloodBuffer(uint8_t * buf, uint8_t len);
+        bool addMessageToFloodBuffer(MsgInfo_t * mInfo);
 
         bool forwardRouteDiscoveryMessage(uint8_t * buf, uint8_t len);
 

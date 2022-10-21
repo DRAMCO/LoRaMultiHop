@@ -13,11 +13,16 @@ static void wdtYield(){
 }
 
 void printBuffer(uint8_t * buf, uint8_t len){
+#pragma region DEBUG
+#ifdef DEBUG
     for(uint8_t i; i<len; i++){
         if(buf[i]<16) Serial.print(" 0");
         else Serial.print(' ');
         Serial.print(buf[i], HEX);
     }
+    Serial.println();
+#endif
+#pragma endregion
 }
 
 /*--------------- CONSTRUCTOR ----------------- */
@@ -249,14 +254,7 @@ void LoRaMultiHop::txMessage(uint8_t len){
 #pragma region DEBUG
 #ifdef DEBUG
     Serial.print(F("TX MSG: "));
-    for(uint8_t i=0; i<len; i++){
-        if(this->txBuf[i] < 16){
-            Serial.print('0');
-        }
-        Serial.print(this->txBuf[i], HEX);
-        Serial.print(' ');
-    }
-    Serial.println();
+    printBuffer(this->txBuf, len);
 #endif
 #pragma endregion
 
@@ -302,14 +300,7 @@ bool LoRaMultiHop::handleAnyRxMessage(uint8_t * buf, uint8_t len){
 #pragma region DEBUG
 #ifdef DEBUG
     Serial.print(F("RX MSG: "));
-    for(uint8_t i=0; i<len; i++){
-        if(buf[i] < 16){
-            Serial.print('0');
-        }
-        Serial.print(buf[i], HEX);
-        Serial.print(' ');
-    }
-    Serial.println();
+    printBuffer(buf, len);
 
     Serial.print(F("Type: "));
     Serial.print(buf[HEADER_TYPE_OFFSET]);
@@ -318,7 +309,7 @@ bool LoRaMultiHop::handleAnyRxMessage(uint8_t * buf, uint8_t len){
 #pragma endregion
     
     // Check if incoming message has already been transmitted, otherwise return false
-    if(this->checkFloodBufferForMessage(buf, len)){
+/*    if(this->checkFloodBufferForMessage(buf, len)){
 #pragma region DEBUG
 #ifdef DEBUG
         Serial.println(F("Duplicate. Message not forwarded."));
@@ -332,9 +323,7 @@ bool LoRaMultiHop::handleAnyRxMessage(uint8_t * buf, uint8_t len){
 #endif
 #pragma endregion
     }
-    
-    addMessageToFloodBuffer(buf, len);
-
+*/    
     switch(buf[HEADER_TYPE_OFFSET]){
         // ROUTE DISCOVERY MESSAGE: Determine best path to the gateway
         case MESG_ROUTE_DISCOVERY:{
@@ -398,7 +387,7 @@ bool LoRaMultiHop::sendMessage(uint8_t * payload, uint8_t len, MsgType_t type){
     Msg_UID_t mUID = (uint16_t) random();
 
     // Add message info to flood buffer
-    floodBuffer.put(mInfo);
+    addMessageToFloodBuffer(&mInfo);
 
     // Build header
     this->txBuf[HEADER_MESG_UID_OFFSET] = (uint8_t)(mUID >> 8);
@@ -448,14 +437,13 @@ bool LoRaMultiHop::sendMessage(uint8_t * payload, uint8_t len, MsgType_t type){
 }
 
 bool LoRaMultiHop::checkFloodBufferForMessage(uint8_t * buf, uint8_t len){
-    Node_UID_t nodeUid;
-    Msg_UID_t msgUid;
-    getFieldFromBuffer((BaseType_t *)(&nodeUid), buf, HEADER_PREVIOUS_UID_OFFSET, sizeof(Node_UID_t));
-    getFieldFromBuffer((BaseType_t *)(&msgUid), buf, HEADER_MESG_UID_OFFSET, sizeof(Node_UID_t));
+    // Node_UID_t nodeUid;
+    BaseType_t msgUid;
+    // getFieldFromBuffer((BaseType_t *)(&nodeUid), buf, HEADER_PREVIOUS_UID_OFFSET, sizeof(Node_UID_t));
+    getFieldFromBuffer(&msgUid, buf, HEADER_MESG_UID_OFFSET, sizeof(Msg_UID_t));
 
     MsgInfo_t mInfo;
-    mInfo.nodeUid = nodeUid;
-    mInfo.nodeUid = msgUid;
+    mInfo.msgUid = (Msg_UID_t)msgUid;
 
     if(this->floodBuffer.find(mInfo) == CB_SUCCESS){
         return true; // Found message in buffer
@@ -465,16 +453,27 @@ bool LoRaMultiHop::checkFloodBufferForMessage(uint8_t * buf, uint8_t len){
 }
 
 bool LoRaMultiHop::addMessageToFloodBuffer(uint8_t * buf, uint8_t len){
-    Node_UID_t nodeUid;
-    Msg_UID_t msgUid;
-    getFieldFromBuffer((BaseType_t *)(&nodeUid), buf, HEADER_PREVIOUS_UID_OFFSET, sizeof(Node_UID_t));
-    getFieldFromBuffer((BaseType_t *)(&msgUid), buf, HEADER_MESG_UID_OFFSET, sizeof(Node_UID_t));
+    //Node_UID_t nodeUid;
+    BaseType_t msgUid;
+    //getFieldFromBuffer((BaseType_t *)(&nodeUid), buf, HEADER_PREVIOUS_UID_OFFSET, sizeof(Node_UID_t));
+    getFieldFromBuffer(&msgUid, buf, HEADER_MESG_UID_OFFSET, sizeof(Msg_UID_t));
 
     MsgInfo_t mInfo;
-    mInfo.nodeUid = nodeUid;
-    mInfo.nodeUid = msgUid;
+    //mInfo.nodeUid = nodeUid;
+    mInfo.msgUid = (Msg_UID_t)msgUid;
 
+    //if(this->floodBuffer.find(mInfo) == CB_NOT_IN_BUFFER){
     this->floodBuffer.put(mInfo);
+    //}
+
+    return true;
+}
+
+
+bool LoRaMultiHop::addMessageToFloodBuffer(MsgInfo_t * mInfo){
+    if(this->floodBuffer.find(*mInfo) == CB_NOT_IN_BUFFER){
+        this->floodBuffer.put(*mInfo);
+    }
 
     return true;
 }
@@ -510,32 +509,42 @@ bool LoRaMultiHop::updateNeighbours(RouteToGatewayInfo_t &neighbour){
 }
 
 Msg_LQI_t LoRaMultiHop::computeCummulativeLQI(Msg_LQI_t previousCummulativeLQI, int8_t snr){
-    return previousCummulativeLQI + (RH_RF95_MAX_SNR-snr); // TODO: explain 20
+    // super-duper-high-tech algorithm to compute a Link Quality Indicator
+    return previousCummulativeLQI + (RH_RF95_MAX_SNR-snr); // the lower the cummulative SNR is, the better
 }
 
 void LoRaMultiHop::updateRouteToGateway(){
-    uint8_t idxLowestLQI = 0;
-    uint8_t numberOfHopsLowestLQI = this->neighbours[0].hopsToGateway;
-    Msg_LQI_t lowestLQI = this->neighbours[0].cumLqi;
+    // default best route is first neighbour
+    uint8_t idxBestRoute = 0;
+    
+    // loop through all neigbours in search for a better one
     for(uint8_t i=1; i<this->numberOfNeighbours; i++){
-        if(this->neighbours[i].cumLqi < lowestLQI){
-            idxLowestLQI = i;
-            numberOfHopsLowestLQI = this->neighbours[i].hopsToGateway;
-            lowestLQI = this->neighbours[i].cumLqi;
+        // make sure isBest is set to false, it will be set later (if it is)
+        this->neighbours[i].isBest = false;
+        // search for lowest LQI
+        if(this->neighbours[i].cumLqi < this->neighbours[idxBestRoute].cumLqi){ 
+            // cummulative LQI of this neighbour is better than the previous one -> save index of this neighbour
+            idxBestRoute = i;
         }
-        else{
-            if(this->neighbours[i].cumLqi == lowestLQI){
-                if(this->neighbours[i].hopsToGateway < numberOfHopsLowestLQI){
-                    idxLowestLQI = i;
-                    numberOfHopsLowestLQI = this->neighbours[i].hopsToGateway;
-                    lowestLQI = this->neighbours[i].cumLqi;
+        else{ // LQI was not lower then the previous one
+            // see if the LQI is equal -> best route is least number of hops
+            if(this->neighbours[i].cumLqi == this->neighbours[idxBestRoute].cumLqi){
+                if(this->neighbours[i].hopsToGateway < this->neighbours[idxBestRoute].hopsToGateway){
+                    idxBestRoute = i;
+                }
+                else{ // nr of hops was not lower
+                    // see if the nr of hops is equal -> best route is lowest snr to neighbour
+                    if(this->neighbours[i].lastSnr > this->neighbours[idxBestRoute].lastSnr){
+                        idxBestRoute = i;
+                    }
                 }
             }
         }
     }
 
-    this->neighbours[idxLowestLQI].isBest = true;
-    this->bestRoute = &this->neighbours[idxLowestLQI];
+    // idxBestRoute should now point to the best route
+    this->neighbours[idxBestRoute].isBest = true;
+    this->bestRoute = &this->neighbours[idxBestRoute];
 }
 
 void LoRaMultiHop::printNeighbours(){
@@ -573,24 +582,24 @@ bool LoRaMultiHop::handleRouteDiscoveryMessage(uint8_t * buf, uint8_t len){
     }
 
     // Get info from message
-    Node_UID_t receivedFrom;
-    uint8_t hops;
-    Msg_UID_t msgId;
-    Msg_LQI_t lqiCum;
+    BaseType_t receivedFrom;
+    BaseType_t hops;
+    BaseType_t msgId;
+    BaseType_t lqiCum;
 
-    this->getFieldFromBuffer((BaseType_t*)(&receivedFrom), buf, HEADER_PREVIOUS_UID_OFFSET, sizeof(Node_UID_t));
-    this->getFieldFromBuffer((BaseType_t*)(&hops), buf, HEADER_HOPS_OFFSET, sizeof(uint8_t));
-    this->getFieldFromBuffer((BaseType_t*)(&lqiCum), buf, HEADER_LQI_OFFSET, sizeof(Msg_LQI_t));
-    this->getFieldFromBuffer((BaseType_t*)(&msgId), buf,HEADER_MESG_UID_OFFSET, sizeof(Msg_UID_t));
+    this->getFieldFromBuffer(&receivedFrom, buf, HEADER_PREVIOUS_UID_OFFSET, sizeof(Node_UID_t));
+    this->getFieldFromBuffer(&hops, buf, HEADER_HOPS_OFFSET, sizeof(uint8_t));
+    this->getFieldFromBuffer(&lqiCum, buf, HEADER_LQI_OFFSET, sizeof(Msg_LQI_t));
+    this->getFieldFromBuffer(&msgId, buf,HEADER_MESG_UID_OFFSET, sizeof(Msg_UID_t));
 
     // Set info in neighbour struct to update neighbour list
     RouteToGatewayInfo_t neighbour;
-    neighbour.lastGatewayBeacon = msgId;
-    neighbour.hopsToGateway = hops;
-    neighbour.viaNode = receivedFrom;
+    neighbour.lastGatewayBeacon = (Msg_UID_t)msgId;
+    neighbour.hopsToGateway = (uint8_t)hops;
+    neighbour.viaNode = (Node_UID_t)receivedFrom;
     neighbour.lastSnr = rf95.lastSnr();
     neighbour.lastRssi = rf95.lastRssi();
-    neighbour.cumLqi = computeCummulativeLQI(lqiCum, neighbour.lastSnr);
+    neighbour.cumLqi = computeCummulativeLQI((Msg_LQI_t)lqiCum, neighbour.lastSnr);
     neighbour.isBest = false;
 
     // Update neighbour list
@@ -604,9 +613,23 @@ bool LoRaMultiHop::handleRouteDiscoveryMessage(uint8_t * buf, uint8_t len){
 #endif
 #pragma endregion
 
-    this->forwardRouteDiscoveryMessage(buf, len);
+    if(this->checkFloodBufferForMessage(buf, len)){
+#pragma region DEBUG
+#ifdef DEBUG
+        Serial.println(F("Duplicate. Message not forwarded."));
+#endif
+#pragma endregion
+        return true;
+    }else{
+#pragma region DEBUG
+#ifdef DEBUG
+        Serial.println(F("Message will be forwarded."));
+#endif
+#pragma endregion
+        this->addMessageToFloodBuffer(buf, len);
+        return this->forwardRouteDiscoveryMessage(buf, len);
+    }
 }
-
 
 bool LoRaMultiHop::forwardRouteDiscoveryMessage(uint8_t * buf, uint8_t len){
     if(len < HEADER_SIZE){
@@ -652,9 +675,28 @@ void LoRaMultiHop::updateRouteDiscoveryHeader(uint8_t * buf, uint8_t pLen){
 
 /*--- 2. Routed message methods ---*/
 bool LoRaMultiHop::handleRoutedMessage(uint8_t * buf, uint8_t len){
+    if(this->checkFloodBufferForMessage(buf, len)){
+#pragma region DEBUG
+#ifdef DEBUG
+        Serial.println(F("Duplicate. Message not forwarded."));
+#endif
+#pragma endregion
+        return false;
+    }else{
+#pragma region DEBUG
+#ifdef DEBUG
+        Serial.println(F("Message will be forwarded."));
+#endif
+#pragma endregion
+        addMessageToFloodBuffer(buf, len);
+    }
+    
+    BaseType_t temp;
     Node_UID_t sentTo, sentFrom;
-    this->getFieldFromBuffer((BaseType_t *)(&sentTo), buf, HEADER_NEXT_UID_OFFSET, sizeof(Node_UID_t));
-    this->getFieldFromBuffer((BaseType_t *)(&sentFrom), buf, HEADER_SIZE+PAYLOAD_NODE_UID_OFFSET, sizeof(Node_UID_t));
+    this->getFieldFromBuffer(&temp, buf, HEADER_NEXT_UID_OFFSET, sizeof(Node_UID_t));
+    sentTo = (Node_UID_t) temp;
+    this->getFieldFromBuffer(&temp, buf, HEADER_SIZE+PAYLOAD_NODE_UID_OFFSET, sizeof(Node_UID_t));
+    sentFrom = (Node_UID_t) temp;
 
 #pragma region DEBUG
 #ifdef DEBUG
