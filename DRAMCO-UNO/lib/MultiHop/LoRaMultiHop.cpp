@@ -693,7 +693,7 @@ bool LoRaMultiHop::handleRoutedMessage(uint8_t * buf, uint8_t len){
     }
     
     BaseType_t temp;
-    Node_UID_t sentTo, sentFrom;
+    BaseType_t sentTo, sentFrom;
     this->getFieldFromBuffer(&temp, buf, HEADER_NEXT_UID_OFFSET, sizeof(Node_UID_t));
     sentTo = (Node_UID_t) temp;
     this->getFieldFromBuffer(&temp, buf, HEADER_SIZE+PAYLOAD_NODE_UID_OFFSET, sizeof(Node_UID_t));

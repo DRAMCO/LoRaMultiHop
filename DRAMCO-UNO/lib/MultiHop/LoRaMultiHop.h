@@ -26,7 +26,7 @@
 #define COLLISION_DELAY_MAX                 COLLISION_DELAY-COLLISION_DELAY_RANDOM/2
 
 
-#define AGGREGATION_BUFFER_SIZE             1     // Max preset buffer size 
+#define AGGREGATION_BUFFER_SIZE             100     // Max preset buffer size 
 #define TX_BUFFER_SIZE                      1*AGGREGATION_BUFFER_SIZE     // Max preset buffer size 
 
 
