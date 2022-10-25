@@ -14,21 +14,28 @@
 #define CAD_DELAY_MIN                       CAD_DELAY - CAD_DELAY_RANDOM/2
 #define CAD_DELAY_MAX                       CAD_DELAY + CAD_DELAY_RANDOM/2
 
-#define AGGREGATION_TIMER_MIN               (MEASURE_INTERVAL/2)-10000L // In ms
-#define AGGREGATION_TIMER_MAX               (MEASURE_INTERVAL/2)+10000L // In ms
+// #define AGGREGATION_TIMER_MIN               (MEASURE_INTERVAL/2)-10000L // In ms
+// #define AGGREGATION_TIMER_MAX               (MEASURE_INTERVAL/2)+10000L // In ms
+// #define AGGREGATION_TIMER_RANDOM            1000 // Random window around PRESET_MAX_LATENCY
+// #define AGGREGATION_TIMER_UPSTEP            10000
+// #define AGGREGATION_TIMER_DOWNSTEP          0
+
+#define AGGREGATION_TIMER_MIN               0 // In ms
+#define AGGREGATION_TIMER_MAX               (MEASURE_INTERVAL/2) // In ms
 #define AGGREGATION_TIMER_RANDOM            1000 // Random window around PRESET_MAX_LATENCY
 #define AGGREGATION_TIMER_UPSTEP            10000
-#define AGGREGATION_TIMER_DOWNSTEP          0
+#define AGGREGATION_TIMER_DOWNSTEP          1000
 
 #define COLLISION_DELAY                     2*PREAMBLE_DURATION       // Backoff if CAD detected when wanting to send
 #define COLLISION_DELAY_RANDOM              PREAMBLE_DURATION
 #define COLLISION_DELAY_MIN                 COLLISION_DELAY-COLLISION_DELAY_RANDOM/2       // Backoff if CAD detected when wanting to send
 #define COLLISION_DELAY_MAX                 COLLISION_DELAY-COLLISION_DELAY_RANDOM/2
 
-
-#define AGGREGATION_BUFFER_SIZE             100     // Max preset buffer size 
-#define TX_BUFFER_SIZE                      1*AGGREGATION_BUFFER_SIZE     // Max preset buffer size 
-
+#define OWN_DATA_BUFFER_SIZE                16
+#define FORWARDED_BUFFER_SIZE               96
+#define AGGREGATION_BUFFER_SIZE             (OWN_DATA_BUFFER_SIZE + FORWARDED_BUFFER_SIZE)    // Max preset buffer size 
+#define TX_BUFFER_SIZE                      (HEADER_SIZE + AGGREGATION_BUFFER_SIZE + 2)     // Max preset buffer size 
+#define PAYLOAD_TX_THRESHOLD                64
 
 #define PIN_ENABLE_3V3                      8
 #define PIN_MODEM_SS                        6
@@ -113,21 +120,18 @@ class LoRaMultiHop{
 
         bool sendMessage(String str, MsgType_t type);
         bool sendMessage(uint8_t * payload, uint8_t len, MsgType_t type);
+        bool sendMessage(MsgType_t type); // sends any pending data immediately
         void setMsgReceivedCb(MsgReceivedCb cb);
         void reconfigModem(void);
 
         bool prepareOwnDataForAggregation(uint8_t * payload, uint8_t len);
-        bool prepareRxDataForAggregation(uint8_t * payload, uint8_t len);
-        bool sendAggregatedMessage( void );
-        bool isPresetPayloadSent( void ){
-            return presetSent;
-        }
 
     private:
         bool handleAnyRxMessage(uint8_t * buf, uint8_t len);
         bool handleRouteDiscoveryMessage(uint8_t * buf, uint8_t len);
         bool handleRoutedMessage(uint8_t * buf, uint8_t len);
         bool handleBroadcastMessage(uint8_t * buf, uint8_t len);
+        bool sendAggregatedMessage( void );
 
         void updateRouteDiscoveryHeader(uint8_t * buf, uint8_t len);
         void initHeader(Msg_UID_t uid);
@@ -135,13 +139,16 @@ class LoRaMultiHop{
 
         bool waitCADDone( void );
         bool waitRXAvailable(uint16_t timeout);
-
+        bool isPresetPayloadSent( void ){
+            return presetSent;
+        }
 
         bool checkFloodBufferForMessage(uint8_t * buf, uint8_t len);
         bool addMessageToFloodBuffer(uint8_t * buf, uint8_t len);
         bool addMessageToFloodBuffer(MsgInfo_t * mInfo);
 
         bool forwardRouteDiscoveryMessage(uint8_t * buf, uint8_t len);
+        bool prepareRxDataForAggregation(uint8_t * payload, uint8_t len);
 
         //Node_UID_t getNodeUidFromBuffer(uint8_t * buf, NodeID_t which=SOURCE_NODE);
         //Msg_UID_t getMsgUidFromBuffer(uint8_t * buf);
@@ -157,20 +164,20 @@ class LoRaMultiHop{
         bool txPending;
         unsigned long txTime;
         uint8_t txLen;
-        uint8_t txBuf[RH_RF95_MAX_MESSAGE_LEN];
+        uint8_t txBuf[TX_BUFFER_SIZE];
         uint8_t rxBuf[RH_RF95_MAX_MESSAGE_LEN];
 
         NodeType_t type;
         Node_UID_t uid;
 
-        RouteToGatewayInfo_t * bestRoute;
-        RouteToGatewayInfo_t * neighbours;
+        RouteToGatewayInfo_t * bestRoute = NULL;
+        RouteToGatewayInfo_t * neighbours = NULL;
         uint8_t numberOfNeighbours = 0;
 
-        uint8_t presetOwnData[AGGREGATION_BUFFER_SIZE];
-        uint8_t presetForwardedData[TX_BUFFER_SIZE];
-        uint8_t presetLength = 0;
-        uint8_t presetForwardedLength = 0;
+        uint8_t ownDataBuffer[OWN_DATA_BUFFER_SIZE];
+        uint8_t forwardedDataBuffer[FORWARDED_BUFFER_SIZE];
+        uint8_t ownDataBufferLength = 0;
+        uint8_t forwardedDataBufferLength = 0;
         unsigned long presetTime;
         bool presetSent = true;
         uint32_t latency;

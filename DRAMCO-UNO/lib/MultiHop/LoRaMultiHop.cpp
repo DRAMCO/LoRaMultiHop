@@ -192,7 +192,7 @@ void LoRaMultiHop::loop(void){
         unsigned long now = DramcoUno.millisWithOffset();
         if(this->txPending && (now > this->txTime)){
             this->txMessage(txLen);
-            this->presetTime = now + random(COLLISION_DELAY_MIN,COLLISION_DELAY_MAX);
+            this->txTime = now + random(COLLISION_DELAY_MIN,COLLISION_DELAY_MAX);
         }
         else{
            // handle any preset payload (routed/appended algorithm)
@@ -282,7 +282,7 @@ bool LoRaMultiHop::setFieldInBuffer(BaseType_t field, uint8_t * buf, uint8_t fie
     // TODO: check buf length?
 
     BaseType_t temp = field;
-    for(uint8_t index=fieldOffset+size-1; index>=fieldOffset; index--){
+    for(int8_t index=fieldOffset+size-1; index>=fieldOffset; index--){
         buf[index] = temp & 0xFF;
         temp >>= 8;
     }
@@ -304,26 +304,10 @@ bool LoRaMultiHop::handleAnyRxMessage(uint8_t * buf, uint8_t len){
 
     Serial.print(F("Type: "));
     Serial.print(buf[HEADER_TYPE_OFFSET]);
-
 #endif
 #pragma endregion
     
     // Check if incoming message has already been transmitted, otherwise return false
-/*    if(this->checkFloodBufferForMessage(buf, len)){
-#pragma region DEBUG
-#ifdef DEBUG
-        Serial.println(F("Duplicate. Message not forwarded."));
-#endif
-#pragma endregion
-        return false;
-    }else{
-#pragma region DEBUG
-#ifdef DEBUG
-        Serial.println(F("Message will be forwarded."));
-#endif
-#pragma endregion
-    }
-*/    
     switch(buf[HEADER_TYPE_OFFSET]){
         // ROUTE DISCOVERY MESSAGE: Determine best path to the gateway
         case MESG_ROUTE_DISCOVERY:{
@@ -350,7 +334,7 @@ bool LoRaMultiHop::handleAnyRxMessage(uint8_t * buf, uint8_t len){
 
 bool LoRaMultiHop::sendMessage(String str, MsgType_t type){
     uint8_t pLen = str.length();
-    if(pLen > RH_RF95_MAX_MESSAGE_LEN - HEADER_SIZE){
+    if(pLen > OWN_DATA_BUFFER_SIZE){
 #pragma region DEBUG
 #ifdef DEBUG
         Serial.println(F("Payload is too long."));
@@ -360,27 +344,36 @@ bool LoRaMultiHop::sendMessage(String str, MsgType_t type){
     }
 
     // copy payload to tx Buffer
-    uint8_t * pPtr = (this->txBuf + HEADER_SIZE + PAYLOAD_DATA_OFFSET);
+    uint8_t * pPtr = (this->ownDataBuffer);
     for(uint8_t i=0; i<pLen; i++){
         *pPtr++ = (uint8_t)str.charAt(i);
     }
-    this->txBuf[HEADER_SIZE+PAYLOAD_NODE_UID_OFFSET] = this->uid;
-    this->txBuf[HEADER_SIZE+PAYLOAD_LEN_OFFSET] = pLen;
+    this->ownDataBufferLength = pLen;
 
-    this->sendMessage(NULL, pLen+MESG_PAYLOAD_LEN_SIZE+NODE_UID_SIZE, type);
-    
-    return true;
+    return this->sendMessage(type);
 }
 
 bool LoRaMultiHop::sendMessage(uint8_t * payload, uint8_t len, MsgType_t type){
-    if(len > RH_RF95_MAX_MESSAGE_LEN - HEADER_SIZE){
-#pragma region DEBUG
-#ifdef DEBUG
-        Serial.println(F("Payload is too long."));
-#endif
-#pragma endregion
+    if(len > OWN_DATA_BUFFER_SIZE){
         return false;
     }
+    
+    memcpy(payload, this->ownDataBuffer, len);
+    this->ownDataBufferLength = len;
+    
+    return sendMessage(type);
+}
+
+bool LoRaMultiHop::sendMessage(MsgType_t type){
+    uint8_t len = HEADER_SIZE + this->ownDataBufferLength + this->forwardedDataBufferLength;
+
+#pragma region DEBUG
+#ifdef DEBUG
+    if(len > TX_BUFFER_SIZE){
+        Serial.println(F("Payload is too long."));
+    }
+#endif
+#pragma endregion
 
     // Generate message uid
     MsgInfo_t mInfo;
@@ -390,10 +383,9 @@ bool LoRaMultiHop::sendMessage(uint8_t * payload, uint8_t len, MsgType_t type){
     addMessageToFloodBuffer(&mInfo);
 
     // Build header
-    this->txBuf[HEADER_MESG_UID_OFFSET] = (uint8_t)(mUID >> 8);
-    this->txBuf[HEADER_MESG_UID_OFFSET+1] = (uint8_t)(mUID & 0x00FF);
-    this->txBuf[HEADER_TYPE_OFFSET] = type;
-    this->txBuf[HEADER_HOPS_OFFSET] = 0;
+    this->setFieldInBuffer(mUID, this->txBuf, HEADER_MESG_UID_OFFSET, sizeof(Msg_UID_t));
+    this->setFieldInBuffer(type, this->txBuf, HEADER_TYPE_OFFSET, sizeof(Msg_Type_t));
+    this->setFieldInBuffer(0, this->txBuf, HEADER_HOPS_OFFSET, sizeof(uint8_t));
 
     // Adjust header types, based on message type
     switch(type) {
@@ -404,15 +396,17 @@ bool LoRaMultiHop::sendMessage(uint8_t * payload, uint8_t len, MsgType_t type){
         } break;
 
         case MESG_ROUTED:{
-            if(sizeof(Node_UID_t)>1){
-                this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = (uint8_t)(this->uid >> 8);
-                this->txBuf[HEADER_PREVIOUS_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
-                this->txBuf[HEADER_NEXT_UID_OFFSET] = (uint8_t)(this->bestRoute->viaNode >> 8);
-                this->txBuf[HEADER_NEXT_UID_OFFSET+1] = (uint8_t)(this->bestRoute->viaNode & 0x00FF);
+            this->setFieldInBuffer(this->uid, this->txBuf, HEADER_PREVIOUS_UID_OFFSET, sizeof(Msg_UID_t));
+            if(this->bestRoute != NULL){
+                this->setFieldInBuffer(this->bestRoute->viaNode, this->txBuf, HEADER_NEXT_UID_OFFSET, sizeof(Msg_UID_t));
             }
             else{
-                this->txBuf[HEADER_PREVIOUS_UID_OFFSET] = this->uid;
-                this->txBuf[HEADER_NEXT_UID_OFFSET] = this->bestRoute->viaNode;
+                this->setFieldInBuffer(0, this->txBuf, HEADER_NEXT_UID_OFFSET, sizeof(Msg_UID_t));
+#pragma region DEBUG
+#ifdef DEBUG
+                Serial.println(F("No route to gateway established yet."));
+#endif
+#pragma endregion
             }
         } break;
 
@@ -423,15 +417,29 @@ bool LoRaMultiHop::sendMessage(uint8_t * payload, uint8_t len, MsgType_t type){
         default: return false;
     }
 
-    // Copy payload to new buffer
-    if(payload != NULL){
+#pragma region DEBUG
+#ifdef DEBUG
+    if((this->ownDataBufferLength == 0) && (this->forwardedDataBufferLength == 0)){
+        Serial.println(F("Payload is empty"));
+    }
+#endif
+#pragma endregion
+
+    if(this->ownDataBufferLength > 0){
         // copy payload to tx Buffer
         uint8_t * pPtr = (this->txBuf + HEADER_PAYLOAD_OFFSET);
-        memcpy(pPtr, payload, len);
+        memcpy(pPtr, this->ownDataBuffer, this->ownDataBufferLength);
+    }
+    
+    // copy aggregated data to tx buffer
+    if(this->forwardedDataBufferLength > 0){
+        // copy payload to tx Buffer
+        uint8_t * pPtr = (this->txBuf + HEADER_PAYLOAD_OFFSET+this->ownDataBufferLength);
+        memcpy(pPtr, this->forwardedDataBuffer, this->forwardedDataBufferLength);
     }
 
     // Final transmit message (NOW)
-    txMessage(len + HEADER_SIZE);
+    this->txMessage(len);
 
     return true;
 }
@@ -653,7 +661,6 @@ bool LoRaMultiHop::forwardRouteDiscoveryMessage(uint8_t * buf, uint8_t len){
     return true;
 }
 
-//TODO: check this nekeer guus
 void LoRaMultiHop::updateRouteDiscoveryHeader(uint8_t * buf, uint8_t pLen){
     // Increase hop count
     this->txBuf[HEADER_HOPS_OFFSET]++;
@@ -677,18 +684,8 @@ void LoRaMultiHop::updateRouteDiscoveryHeader(uint8_t * buf, uint8_t pLen){
 /*--- 2. Routed message methods ---*/
 bool LoRaMultiHop::handleRoutedMessage(uint8_t * buf, uint8_t len){
     if(this->checkFloodBufferForMessage(buf, len)){
-#pragma region DEBUG
-#ifdef DEBUG
-        Serial.println(F("Duplicate. Message not forwarded."));
-#endif
-#pragma endregion
         return false;
-    }else{
-#pragma region DEBUG
-#ifdef DEBUG
-        Serial.println(F("Message will be forwarded."));
-#endif
-#pragma endregion
+    } else {
         addMessageToFloodBuffer(buf, len);
     }
     
@@ -706,10 +703,10 @@ bool LoRaMultiHop::handleRoutedMessage(uint8_t * buf, uint8_t len){
     Serial.println(sentTo, HEX);
     Serial.print("From: 0x");
     Serial.println(sentFrom, HEX);
-    Serial.print(F("RSSI: "));
-    Serial.println(rf95.lastRssi());
-    Serial.print(F("SNR: "));
-    Serial.println(rf95.lastSnr());
+//  Serial.print(F("RSSI: "));
+//  Serial.println(rf95.lastRssi());
+//  Serial.print(F("SNR: "));
+//  Serial.println(rf95.lastSnr());
     Serial.print(F("Action: "));
     if(sentTo == this->uid){
         if(sentTo == GATEWAY_UID){
@@ -719,7 +716,7 @@ bool LoRaMultiHop::handleRoutedMessage(uint8_t * buf, uint8_t len){
         }
 
     }else{
-        Serial.print("none/not-for-me");
+        Serial.println("none/not-for-me");
     }
 #endif
 #pragma endregion
@@ -734,7 +731,7 @@ bool LoRaMultiHop::handleRoutedMessage(uint8_t * buf, uint8_t len){
             if(this->latency > AGGREGATION_TIMER_MAX) this->latency = AGGREGATION_TIMER_MAX;
 #pragma region DEBUG
 #ifdef DEBUG
-            Serial.print(F("Latency updated: "));
+            Serial.print(F("Latency: "));
             Serial.println(this->latency);
 #endif
 #pragma endregion
@@ -742,7 +739,6 @@ bool LoRaMultiHop::handleRoutedMessage(uint8_t * buf, uint8_t len){
             uint8_t payloadLen = (len - HEADER_SIZE);
             this->prepareRxDataForAggregation(buf+HEADER_PAYLOAD_OFFSET, payloadLen);
         }
-
     }
 
 #pragma region DEBUG
@@ -780,16 +776,11 @@ bool LoRaMultiHop::prepareOwnDataForAggregation(uint8_t * payload, uint8_t len){
 #pragma endregion
 
     // Copy message to buffer
-    if(sizeof(Node_UID_t)>1){
-        this->presetOwnData[PAYLOAD_NODE_UID_OFFSET] =  (uint8_t)(this->uid >> 8);
-        this->presetOwnData[PAYLOAD_NODE_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
-    }
-    else{
-        this->presetOwnData[PAYLOAD_NODE_UID_OFFSET] =  this->uid;
-    }
-    this->presetOwnData[PAYLOAD_LEN_OFFSET] = (len & 0x07);
-    memcpy(this->presetOwnData+PAYLOAD_DATA_OFFSET, payload, len);
-    this->presetLength = len + NODE_UID_SIZE + MESG_PAYLOAD_LEN_SIZE;
+    setFieldInBuffer(this->uid, this->ownDataBuffer, PAYLOAD_NODE_UID_OFFSET, sizeof(Node_UID_t));
+    setFieldInBuffer((len & 0x07), this->ownDataBuffer, PAYLOAD_LEN_OFFSET, MESG_PAYLOAD_LEN_SIZE);
+
+    memcpy(this->ownDataBuffer+PAYLOAD_DATA_OFFSET, payload, len);
+    this->ownDataBufferLength = len + NODE_UID_SIZE + MESG_PAYLOAD_LEN_SIZE;
 
     // schedule transmission if needed
     if(this->presetSent){ // start new window
@@ -821,18 +812,25 @@ bool LoRaMultiHop::prepareRxDataForAggregation(uint8_t * payload, uint8_t len){
 #endif
 #pragma endregion
 
-    memcpy((this->presetForwardedData + this->presetForwardedLength), payload, len);
-    this->presetForwardedLength += len;
+    memcpy((this->forwardedDataBuffer + this->forwardedDataBufferLength), payload, len);
+    this->forwardedDataBufferLength += len;
 
     // schedule transmission if needed
-    if(this->presetSent){ // start new window
+    if(this->ownDataBufferLength + this->forwardedDataBufferLength > PAYLOAD_TX_THRESHOLD){
         this->presetSent = false;
-        this->presetTime = DramcoUno.millisWithOffset() + random(this->latency - AGGREGATION_TIMER_RANDOM, this->latency + AGGREGATION_TIMER_RANDOM);
+        this->presetTime = DramcoUno.millisWithOffset();
+    }
+    else{
+        if(this->presetSent){ // start new window
+            this->presetSent = false;
+            this->presetTime = DramcoUno.millisWithOffset() + random(this->latency - AGGREGATION_TIMER_RANDOM, this->latency + AGGREGATION_TIMER_RANDOM);
+        }
     }
 
     return true;
 }
 
+// build message in tx buffer and transmit
 bool LoRaMultiHop::sendAggregatedMessage( void ){
     if(this->presetSent){
         return true;
@@ -851,31 +849,21 @@ bool LoRaMultiHop::sendAggregatedMessage( void ){
 #pragma endregion
 
     // create dummy payload if no preset data available
-    if(presetLength == 0){
-        if(sizeof(Node_UID_t)>1){
-            this->presetOwnData[PAYLOAD_NODE_UID_OFFSET] =  (uint8_t)(this->uid >> 8);
-            this->presetOwnData[PAYLOAD_NODE_UID_OFFSET+1] = (uint8_t)(this->uid & 0x00FF);
-        }
-        else{
-            this->presetOwnData[PAYLOAD_NODE_UID_OFFSET] =  this->uid;
-        }
-        this->presetOwnData[PAYLOAD_LEN_OFFSET] = (uint8_t)(this->presetForwardedLength<<3);
-        this->presetLength = 2;
+    if(this->ownDataBufferLength == 0){
+        setFieldInBuffer(this->uid, this->ownDataBuffer, PAYLOAD_NODE_UID_OFFSET, sizeof(Node_UID_t));
+        setFieldInBuffer((uint8_t)(this->forwardedDataBufferLength<<3), this->ownDataBuffer, PAYLOAD_LEN_OFFSET, sizeof(uint8_t));
+        this->ownDataBufferLength = 2;
     }
     else{
-        this->presetOwnData[PAYLOAD_LEN_OFFSET] |= (uint8_t)(this->presetForwardedLength<<3);
+        this->ownDataBuffer[PAYLOAD_LEN_OFFSET] |= (uint8_t)(this->forwardedDataBufferLength<<3);
     }
 
-    // copy preset forward data to preset own data
-    memcpy((this->presetOwnData + this->presetLength), this->presetForwardedData, this->presetForwardedLength);
-    this->presetLength += this->presetForwardedLength;
-
-    // Send message, but let go of extra header
-    bool rv = this->sendMessage(this->presetOwnData, this->presetLength, MESG_ROUTED);
+    // Send message
+    bool rv = this->sendMessage(MESG_ROUTED);
 
     // reset counters
-    this->presetLength = 0;
-    this->presetForwardedLength = 0;
+    this->ownDataBufferLength = 0;
+    this->forwardedDataBufferLength = 0;
 
     return rv;
 }

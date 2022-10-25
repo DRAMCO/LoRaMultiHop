@@ -2,6 +2,7 @@
 
 static volatile unsigned int _wdtSleepTimeMillis;
 static volatile unsigned long _millisInDeepSleep;
+static volatile bool _otherWakeUpSource;
 
 static bool _keep3V3Active = false;
 static uint8_t _accelerometerIntEnabled = false;
@@ -323,7 +324,8 @@ unsigned long DramcoUnoClass::_sleep(unsigned long maxWaitTimeMillis, bool sleep
     byte adcsraSave = ADCSRA;
 
     _millisInDeepSleep = 0;
-    while( _millisInDeepSleep <= maxWaitTimeMillis-1 && !sleepOnce){ // -1 for enabling to stop sleeping
+    _otherWakeUpSource = false;
+    while( (_millisInDeepSleep <= maxWaitTimeMillis-1) && (!sleepOnce) && (!_otherWakeUpSource)){ // -1 for enabling to stop sleeping
         sleep_enable(); // enables the sleep bit, a safety pin
         
         _wdtSleepTimeMillis = DramcoUnoClass::_wdtEnableForSleep(maxWaitTimeMillis-_millisInDeepSleep);
@@ -465,7 +467,7 @@ ISR (PCINT0_vect){ // handle pin change interrupt for D8 to D13 here
             DramcoUnoClass::blink();
             pciDeinit();
             _interruptHappened = true;
-            _millisInDeepSleep = -1; // Stop WDT sleep
+            _otherWakeUpSource = true; // Stop WDT sleep
             _keep3V3Active = false; // Accelerometer can shut up now
             _accelerometerIntEnabled = false;
         }
@@ -480,7 +482,7 @@ ISR (PCINT0_vect){ // handle pin change interrupt for D8 to D13 here
 #endif
                 _interruptHappened = true;
                 pciDeinit();
-                _millisInDeepSleep = -1; // Stop WDT sleep
+                _otherWakeUpSource = true; // Stop WDT sleep
                 _buttonIntEnabled = false;
             }
         }
