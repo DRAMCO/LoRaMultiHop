@@ -396,12 +396,12 @@ bool LoRaMultiHop::sendMessage(MsgType_t type){
         } break;
 
         case MESG_ROUTED:{
-            this->setFieldInBuffer(this->uid, this->txBuf, HEADER_PREVIOUS_UID_OFFSET, sizeof(Msg_UID_t));
+            this->setFieldInBuffer(this->uid, this->txBuf, HEADER_PREVIOUS_UID_OFFSET, sizeof(Node_UID_t));
             if(this->bestRoute != NULL){
-                this->setFieldInBuffer(this->bestRoute->viaNode, this->txBuf, HEADER_NEXT_UID_OFFSET, sizeof(Msg_UID_t));
+                this->setFieldInBuffer(this->bestRoute->viaNode, this->txBuf, HEADER_NEXT_UID_OFFSET, sizeof(Node_UID_t));
             }
             else{
-                this->setFieldInBuffer(0, this->txBuf, HEADER_NEXT_UID_OFFSET, sizeof(Msg_UID_t));
+                this->setFieldInBuffer(0, this->txBuf, HEADER_NEXT_UID_OFFSET, sizeof(Node_UID_t));
 #pragma region DEBUG
 #ifdef DEBUG
                 Serial.println(F("No route to gateway established yet."));
@@ -526,7 +526,7 @@ void LoRaMultiHop::updateRouteToGateway(){
     uint8_t idxBestRoute = 0;
     
     // loop through all neigbours in search for a better one
-    for(uint8_t i=1; i<this->numberOfNeighbours; i++){
+    for(uint8_t i=0; i<this->numberOfNeighbours; i++){
         // make sure isBest is set to false, it will be set later (if it is)
         this->neighbours[i].isBest = false;
         // search for lowest LQI
@@ -552,7 +552,7 @@ void LoRaMultiHop::updateRouteToGateway(){
 
     // idxBestRoute should now point to the best route
     this->neighbours[idxBestRoute].isBest = true;
-    this->bestRoute = &this->neighbours[idxBestRoute];
+    this->bestRoute = this->neighbours+idxBestRoute;
 }
 
 void LoRaMultiHop::printNeighbours(){
