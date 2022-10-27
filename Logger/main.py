@@ -12,47 +12,68 @@ import configparser
 
 MESG_UID_SIZE = 2
 NODE_UID_SIZE = 1
+MESG_TYPE_SIZE = 1
+MESG_HOPS_SIZE = 1
+MESG_PAYLOAD_LEN_SIZE = 1
+MESG_LQI_SIZE = 2
 
 MESG_FIRST_BYTE_OFFSET = 0      # start of the actual message "Packet:" is position 0
-MESG_UID_OFFSET = 0
-TYPE_OFFSET = MESG_UID_OFFSET + MESG_UID_SIZE
-HOPS_OFFSET = TYPE_OFFSET + 1
-NEXT_PREVIOUS_UID_OFFSET = HOPS_OFFSET + 1
-PAYLOAD_OFFSET = NEXT_PREVIOUS_UID_OFFSET + NODE_UID_SIZE
+
+HEADER_MESG_UID_OFFSET          = 0
+HEADER_TYPE_OFFSET              = (HEADER_MESG_UID_OFFSET + MESG_UID_SIZE)
+HEADER_HOPS_OFFSET              = (HEADER_TYPE_OFFSET + MESG_TYPE_SIZE)
+HEADER_LQI_OFFSET               = (HEADER_HOPS_OFFSET + MESG_HOPS_SIZE)
+HEADER_NEXT_UID_OFFSET          = (HEADER_LQI_OFFSET + MESG_LQI_SIZE)
+HEADER_PREVIOUS_UID_OFFSET      = (HEADER_LQI_OFFSET + MESG_LQI_SIZE)
+HEADER_PAYLOAD_OFFSET           = (HEADER_PREVIOUS_UID_OFFSET + NODE_UID_SIZE)
+HEADER_SIZE                     = HEADER_PAYLOAD_OFFSET
+
+PAYLOAD_NODE_UID_OFFSET         = 0
+PAYLOAD_LEN_OFFSET              = (PAYLOAD_NODE_UID_OFFSET + NODE_UID_SIZE)
+PAYLOAD_DATA_OFFSET             = (PAYLOAD_LEN_OFFSET + MESG_PAYLOAD_LEN_SIZE)
+
 
 config = configparser.ConfigParser()
 config.read('config.ini')
+
+ignoreNext = False
 
 # parse a line
 def parse_line(line_str):
     parts = line_str.rstrip().split(' ')
     # read messageUid
-    offset = MESG_FIRST_BYTE_OFFSET + MESG_UID_OFFSET
+    offset = MESG_FIRST_BYTE_OFFSET + HEADER_MESG_UID_OFFSET
     message_uid = parts[offset] + parts[offset + 1]
     # read messageType
-    offset = MESG_FIRST_BYTE_OFFSET + TYPE_OFFSET
+    offset = MESG_FIRST_BYTE_OFFSET + HEADER_TYPE_OFFSET
     message_type = parts[offset]
     # read hops
-    offset = MESG_FIRST_BYTE_OFFSET + HOPS_OFFSET
+    offset = MESG_FIRST_BYTE_OFFSET + HEADER_HOPS_OFFSET
     hops = parts[offset]
+    # cumulative lqi
+    offset = MESG_FIRST_BYTE_OFFSET + HEADER_LQI_OFFSET
+    lqi = parts[offset]
     # read nextPreviousUid
-    offset = MESG_FIRST_BYTE_OFFSET + NEXT_PREVIOUS_UID_OFFSET
+    offset = MESG_FIRST_BYTE_OFFSET + HEADER_NEXT_UID_OFFSET
     if NODE_UID_SIZE == 2:
         destination_uid = parts[offset] + parts[offset + 1]  # should always be 0000
     else:
         destination_uid = parts[offset]
     # read payload
-    offset = MESG_FIRST_BYTE_OFFSET + PAYLOAD_OFFSET
+    offset = MESG_FIRST_BYTE_OFFSET + HEADER_PAYLOAD_OFFSET
 
-    print("---START---")
-    print(parts[offset:])
+    #print("---START---")
+    #print(parts[offset:])
+    print(line_str)
     payload = parse_payload(parts[offset:])
-    print("---END---")
+
+    #print("---END---")
     # general info for this message
     message_info = {
         "message_uid": message_uid,
         "message_type": message_type,
         "hops": hops,
+        "lqi": lqi,
         "destination_uid": destination_uid,
         "payload": payload,
         "timestamp": datetime.now().strftime("%Y%m%d-%H%M%S"),
@@ -64,7 +85,7 @@ def parse_line(line_str):
 
 # parse the rest of a line
 def parse_payload(line_parts):
-    print("Got in parse payload: "+ str(line_parts))
+    #print("Got in parse payload: "+ str(line_parts))
     if not len(line_parts) > 1:
         print("Error parsing appended payload (not enough fields remaining)")
         return {}, []
@@ -89,13 +110,14 @@ def parse_payload(line_parts):
     offset += 1
     own_data = line_parts[offset:(offset+own_data_length)]
     rest_of_data = line_parts[(offset+own_data_length):]
-    print("forwarded data length:"+str(forwarded_data_length))
+    #print("forwarded data length:"+str(forwarded_data_length))
     if forwarded_data_length == 0:
         forwarded_data = []
         forwarded_payload = []
     else:
         forwarded_data = line_parts[(offset+own_data_length):]
         forwarded_payload = parse_payload(forwarded_data)
+        #TODO: Make this into a loop where all messages after eachother get parsed. parsepayload(forwardeddatalength) for remaining bytes
     # extra check
     if not (len(forwarded_data) == forwarded_data_length):
         print(line_parts)
@@ -201,12 +223,12 @@ def process_line(line, message_log):
         except ValueError:
             print("ERROR: could not find UID")
 
-    if line.find('action') > -1:
+    if line.find('Action:') > -1:
         line_parts = line.split(' ')
         last_action = line_parts[1]
 
     # check contents of the line and take action when necessary
-    if (not line.find('Action: none/not-for-mePacket:')>-1) and (line.find('Packet: ') > -1 or line.find('Packet (not for me): ') > -1):
+    if line.find('Packet: ') > -1 and last_action == "none/arrived":
         # parse line containing message to json format
         line = line.replace('Packet: ', '')
         line = line.replace('Packet (not for me): ', '')
