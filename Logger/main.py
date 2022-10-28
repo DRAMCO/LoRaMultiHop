@@ -64,7 +64,7 @@ def parse_line(line_str):
 
     #print("---START---")
     #print(parts[offset:])
-    print(line_str)
+    #print(line_str)
     payload = parse_payload(parts[offset:])
 
     #print("---END---")
@@ -91,46 +91,45 @@ def parse_payload(line_parts):
         return {}, []
 
     offset = 0
-    if NODE_UID_SIZE == 2:
-        source_uid = line_parts[0] + line_parts[1]
-    else:
-        source_uid = line_parts[0]
 
-    offset += NODE_UID_SIZE
-    try:
-        length_field = int(line_parts[offset], 16)
-    except ValueError:
-        print("ERROR: length field is not an integer -> ", line_parts[NODE_UID_SIZE])
+    payload = []
+    while offset < len(line_parts):
+        pl = line_parts[offset:]
+
+        if NODE_UID_SIZE == 2:
+            source_uid = pl[PAYLOAD_NODE_UID_OFFSET] + pl[PAYLOAD_NODE_UID_OFFSET+1]
+        else:
+            source_uid = pl[PAYLOAD_NODE_UID_OFFSET+0]
+
+        try:
+            length_field = int(pl[PAYLOAD_LEN_OFFSET], 16)
+        except ValueError:
+            print("ERROR: length field is not an integer -> ", pl[NODE_UID_SIZE])
 
 
+        # extract length of forwarded data (5 Msb) and own data (3 Lsb) from the length field
+        own_data_length = (length_field & 0x07)
+        forwarded_data_length = ((length_field >> 3) & 0x1F)
 
-    # extract length of forwarded data (5 Msb) and own data (3 Lsb) from the length field
-    own_data_length = (length_field & 0x07)
-    forwarded_data_length = ((length_field >> 3) & 0x1F)
-    offset += 1
-    own_data = line_parts[offset:(offset+own_data_length)]
-    rest_of_data = line_parts[(offset+own_data_length):]
-    #print("forwarded data length:"+str(forwarded_data_length))
-    if forwarded_data_length == 0:
-        forwarded_data = []
-        forwarded_payload = []
-    else:
-        forwarded_data = line_parts[(offset+own_data_length):]
-        forwarded_payload = parse_payload(forwarded_data)
-        #TODO: Make this into a loop where all messages after eachother get parsed. parsepayload(forwardeddatalength) for remaining bytes
-    # extra check
-    if not (len(forwarded_data) == forwarded_data_length):
-        print(line_parts)
-        print("ERROR: forwarded data length ("+ str(len(forwarded_data)) +", "+ str(forwarded_data) +") does not match length field ("+ str(forwarded_data_length)+","+hex(length_field) +")")
+        own_data = pl[PAYLOAD_DATA_OFFSET:(PAYLOAD_DATA_OFFSET+own_data_length)]
+        if forwarded_data_length > 0:
+            forwarded_data = pl[(PAYLOAD_DATA_OFFSET+own_data_length):(PAYLOAD_DATA_OFFSET+own_data_length+forwarded_data_length)]
+            forwarded_payload = parse_payload(forwarded_data)
+        else:
+            forwarded_data = []
+            forwarded_payload = []
 
-    payload = [
-        {
-            "source_uid": source_uid,
-            "payload_length": own_data_length,
-            "payload_data": own_data,
-            "forwarded_payload": forwarded_payload
-        }
-    ]
+
+        offset = offset+PAYLOAD_DATA_OFFSET+own_data_length+forwarded_data_length
+
+        payload.append(
+            {
+                "source_uid": source_uid,
+                "payload_length": own_data_length,
+                "payload_data": own_data,
+                "forwarded_payload": forwarded_payload
+            }
+        )
 
     # multiple forwarded payloads on a same distance
     # print("end: rest: "+str(rest_of_data) +", data length forwarded: "+str(forwarded_data_length))
@@ -346,7 +345,8 @@ def add_to_payload_list(source_uid, own_data, node_statistics):
                                            "resets": 0,
                                            "arrived_payloads": 1,
                                            "resent_payloads": 0,
-                                           "packet_delivery_ratio":0}
+                                           "packet_delivery_ratio":0,
+                                           "only_forwarded_data": 0}
         else:
             payload_previous = node_statistics[source_uid]["last_payload"]
             node_statistics[source_uid]["last_payload"] = int(""+own_data[0]+own_data[1], 16)
@@ -371,14 +371,26 @@ def add_to_payload_list(source_uid, own_data, node_statistics):
                 # When payload is received twice in a row
                 node_statistics[source_uid]["resent_payloads"] += 1
             node_statistics[source_uid]["packet_delivery_ratio"] = node_statistics[source_uid]["arrived_payloads"]/(node_statistics[source_uid]["lost_payloads"]+node_statistics[source_uid]["arrived_payloads"])
-
-
+    else:
+        if source_uid not in node_statistics.keys():
+            # First payload of this uid
+            node_statistics[source_uid] = {"last_payload" : None,
+                                           "first_payload": None,
+                                           "lost_payloads": 0,
+                                           "resets": 0,
+                                           "arrived_payloads": 1,
+                                           "resent_payloads": 0,
+                                           "packet_delivery_ratio": 0,
+                                           "only_forwarded_data": 1}
+        else:
+            node_statistics[source_uid]["only_forwarded_data"] += 1
 
 def analyze_payload(payload, node_statistics):
+    print("analyze payload")
+    # multiple forwarded payloads on a same distance
     add_to_payload_list(payload["source_uid"], payload["payload_data"], node_statistics)
 
-    # multiple forwarded payloads on a same distance
-    if len(payload["forwarded_payload"]) > 0 :
+    if len(payload["forwarded_payload"]) > 0:
         for e in payload["forwarded_payload"]:
             analyze_payload(e, node_statistics)
 
