@@ -18,33 +18,6 @@ import logFile
 config = configparser.ConfigParser()
 config.read('secret_config.ini')
 
-
-
-
-
-
-def openFile(file_name):
-    if len(file_name) == 0:
-        f = []
-        for (_, _, filenames) in os.walk(os.getcwd()):
-            f.extend(filenames)
-            break
-
-        for f_n in f:
-            if not (f_n.endswith('.json') or f_n.endswith('.csv')):
-                f.remove(f_n)
-
-        file_name = f[-1]
-
-    print('Analysing ' + file_name)
-
-    if file_name.endswith('.csv'):
-        file_name = logFile.processCsv(file_name)
-
-    return file_name
-
-
-
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     valid_option = False
