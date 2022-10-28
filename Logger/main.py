@@ -34,7 +34,7 @@ if __name__ == '__main__':
     if args.command.lower() == "analyze" or args.command.lower() == "a":
         file_name = args.file
         if args.online is not None:
-            file_name = ftpDownload(args.file)
+            file_name = logFile.ftpDownload(args.file)
         print("Running analysis...")
         analyzer.runAnalysis(file_name)
         if args.signal is not None:
