@@ -3,3 +3,6 @@
 Logger/config.ini
 Logger/*.csv
 Logger/*.json
+Logger/.idea/workspace.xml
+Logger/.idea/misc.xml
+Logger/.idea/Logger.iml
