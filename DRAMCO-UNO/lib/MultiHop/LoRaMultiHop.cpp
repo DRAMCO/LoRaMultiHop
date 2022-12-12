@@ -27,7 +27,7 @@ void printBuffer(uint8_t * buf, uint8_t len){
 
 /*--------------- CONSTRUCTOR ----------------- */
 LoRaMultiHop::LoRaMultiHop(NodeType_t nodeType){
-    this->latency = AGGREGATION_TIMER_MIN;
+    this->latency = AGGREGATION_TIMER_NOMINAL;
     this->type = nodeType;
 }
 
@@ -541,8 +541,7 @@ void LoRaMultiHop::updateRouteToGateway(){
                     idxBestRoute = i;
                 }
                 else{ // nr of hops was not lower
-                    // see if the nr of hops is equal -> best route is lowest snr to neighbour
-                    if(this->neighbours[i].hopsToGateway == this->neighbours[idxBestRoute].hopsToGateway && this->neighbours[i].lastSnr > this->neighbours[idxBestRoute].lastSnr){
+                    if(this->neighbours[i].lastSnr > this->neighbours[idxBestRoute].lastSnr){
                         idxBestRoute = i;
                     }
                 }
