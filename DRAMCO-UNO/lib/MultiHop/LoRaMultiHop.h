@@ -6,7 +6,7 @@
 #include "CircBuffer.h"
 
 
-#define PREAMBLE_DURATION                   200.0 // In ms
+#define PREAMBLE_DURATION                   1441.0 // In ms
 
 #define CAD_STABILIZE                       30 // In ms
 #define CAD_DELAY                           PREAMBLE_DURATION*5/8
@@ -20,14 +20,15 @@
 // #define AGGREGATION_TIMER_UPSTEP            10000
 // #define AGGREGATION_TIMER_DOWNSTEP          0
 
+#define AGGREGATION_TIMER_NOMINAL           960000// in ms
 #define AGGREGATION_TIMER_MIN               0 // In ms
 #define AGGREGATION_TIMER_MAX               (MEASURE_INTERVAL/2) // In ms
-#define AGGREGATION_TIMER_RANDOM            1000 // Random window around PRESET_MAX_LATENCY
-#define AGGREGATION_TIMER_UPSTEP            10000
-#define AGGREGATION_TIMER_DOWNSTEP          1000
+#define AGGREGATION_TIMER_RANDOM            90000 // Random window around PRESET_MAX_LATENCY
+#define AGGREGATION_TIMER_UPSTEP            60000
+#define AGGREGATION_TIMER_DOWNSTEP          30000
 
-#define COLLISION_DELAY                     2*PREAMBLE_DURATION       // Backoff if CAD detected when wanting to send
-#define COLLISION_DELAY_RANDOM              PREAMBLE_DURATION
+#define COLLISION_DELAY                     20*PREAMBLE_DURATION       // Backoff if CAD detected when wanting to send
+#define COLLISION_DELAY_RANDOM              20*PREAMBLE_DURATION
 #define COLLISION_DELAY_MIN                 COLLISION_DELAY-COLLISION_DELAY_RANDOM/2       // Backoff if CAD detected when wanting to send
 #define COLLISION_DELAY_MAX                 COLLISION_DELAY-COLLISION_DELAY_RANDOM/2
 
