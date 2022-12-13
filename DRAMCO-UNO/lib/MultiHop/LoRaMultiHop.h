@@ -27,8 +27,8 @@
 #define AGGREGATION_TIMER_UPSTEP            60000
 #define AGGREGATION_TIMER_DOWNSTEP          30000
 
-#define COLLISION_DELAY                     20*PREAMBLE_DURATION       // Backoff if CAD detected when wanting to send
-#define COLLISION_DELAY_RANDOM              20*PREAMBLE_DURATION
+#define COLLISION_DELAY                     2*PREAMBLE_DURATION       // Backoff if CAD detected when wanting to send
+#define COLLISION_DELAY_RANDOM              PREAMBLE_DURATION
 #define COLLISION_DELAY_MIN                 COLLISION_DELAY-COLLISION_DELAY_RANDOM/2       // Backoff if CAD detected when wanting to send
 #define COLLISION_DELAY_MAX                 COLLISION_DELAY-COLLISION_DELAY_RANDOM/2
 

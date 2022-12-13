@@ -643,6 +643,9 @@ bool LoRaMultiHop::forwardRouteDiscoveryMessage(uint8_t * buf, uint8_t len){
     if(len < HEADER_SIZE){
         return false;
     }
+    if(this->txPending){
+        return false;
+    }
 
     // In case of beacon or data broadcast
     // copy complete message to tx Buffer
