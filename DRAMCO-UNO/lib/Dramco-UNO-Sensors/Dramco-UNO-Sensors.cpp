@@ -501,7 +501,7 @@ ISR (PCINT2_vect){ // handle pin change interrupt for D0 to D7 here
 #endif
                 _interruptHappened = true;
                 pciDeinit();
-                _millisInDeepSleep = -1; // Stop WDT sleep
+                _otherWakeUpSource = true; // Stop WDT sleep
                 _buttonIntEnabled = false;
             }
         }
