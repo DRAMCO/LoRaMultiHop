@@ -90,6 +90,9 @@ bool LoRaMultiHop::begin(){
 #endif
 #pragma endregion
 
+    uint32_t r = rf95.random() * DramcoUno.random();
+    randomSeed(r);  
+
     if(this->type == GATEWAY){
         this->uid = GATEWAY_UID;
     }
@@ -97,8 +100,6 @@ bool LoRaMultiHop::begin(){
 #ifdef NODE_UID
         this->uid = NODE_UID;
 #else
-        uint32_t r = rf95.random() * DramcoUno.random();
-        randomSeed(r);  
         this->uid = (Node_UID_t) r;
 #endif
     }
