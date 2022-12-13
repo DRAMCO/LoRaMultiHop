@@ -6,13 +6,13 @@
 #include "CircBuffer.h"
 
 
-#define PREAMBLE_DURATION                   1441.0 // In ms
+#define PREAMBLE_DURATION                   1000 // In ms
 
 #define CAD_STABILIZE                       30 // In ms
-#define CAD_DELAY                           PREAMBLE_DURATION*5/8
-#define CAD_DELAY_RANDOM                    PREAMBLE_DURATION*2/8
-#define CAD_DELAY_MIN                       CAD_DELAY - CAD_DELAY_RANDOM/2
-#define CAD_DELAY_MAX                       CAD_DELAY + CAD_DELAY_RANDOM/2
+#define CAD_DELAY                           PREAMBLE_DURATION*0.625
+#define CAD_DELAY_RANDOM                    PREAMBLE_DURATION*0.125
+#define CAD_DELAY_MIN                       CAD_DELAY - CAD_DELAY_RANDOM
+#define CAD_DELAY_MAX                       CAD_DELAY + CAD_DELAY_RANDOM
 
 // #define AGGREGATION_TIMER_MIN               (MEASURE_INTERVAL/2)-10000L // In ms
 // #define AGGREGATION_TIMER_MAX               (MEASURE_INTERVAL/2)+10000L // In ms
@@ -20,9 +20,9 @@
 // #define AGGREGATION_TIMER_UPSTEP            10000
 // #define AGGREGATION_TIMER_DOWNSTEP          0
 
-#define AGGREGATION_TIMER_NOMINAL           960000// in ms
+#define AGGREGATION_TIMER_NOMINAL           960000UL// in ms
 #define AGGREGATION_TIMER_MIN               0 // In ms
-#define AGGREGATION_TIMER_MAX               (MEASURE_INTERVAL/2) // In ms
+#define AGGREGATION_TIMER_MAX               AGGREGATION_TIMER_NOMINAL+60000 // In ms
 #define AGGREGATION_TIMER_RANDOM            90000 // Random window around PRESET_MAX_LATENCY
 #define AGGREGATION_TIMER_UPSTEP            60000
 #define AGGREGATION_TIMER_DOWNSTEP          30000

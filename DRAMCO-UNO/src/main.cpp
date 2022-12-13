@@ -6,6 +6,7 @@
 
 #include "Dramco-UNO-Sensors.h"
 
+/*
 #define PIN_BUTTON        10
 #define PIN_LED           4
 
@@ -16,7 +17,7 @@
 #define DRAMCO_UNO_LPP_TEMPERATURE_MULT     10
 #define DRAMCO_UNO_LPP_ACCELEROMETER_MULT   1000
 #define DRAMCO_UNO_LPP_PERCENTAGE_MULT      1
-
+*/
 
 
 bool newMsg = false;
@@ -84,7 +85,7 @@ Serial.println(DramcoUno.random());
 #endif
   if(!multihop.begin()){
     while(true){
-      digitalWrite(PIN_LED, !digitalRead(PIN_LED));
+      digitalWrite(DRAMCO_UNO_LED_NAME, !digitalRead(DRAMCO_UNO_LED_NAME));
       delay(100);
     }
   }
@@ -144,6 +145,7 @@ void loop(){
 #endif
 
     uint8_t data[15];
+    memset(data, 0, 14);
     uint8_t i = 0;
 
     //uint16_t vx = DramcoUno.readAccelerationXInt();
@@ -174,7 +176,7 @@ void loop(){
 #endif
 
   if(newMsg){
-    digitalWrite(PIN_LED, !digitalRead(PIN_LED));
+    digitalWrite(DRAMCO_UNO_LED_NAME, !digitalRead(DRAMCO_UNO_LED_NAME));
     newMsg = false;
   }
   digitalWrite(DRAMCO_UNO_LED_NAME, LOW);

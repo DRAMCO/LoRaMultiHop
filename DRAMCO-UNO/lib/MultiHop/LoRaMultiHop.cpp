@@ -155,7 +155,7 @@ void LoRaMultiHop::loop(void){
     // if channel activity has been detected during the previous CAD - enable RX and receive message
     if(rf95.cadDetected()){
         rf95.setModeRx();
-        rf95.waitAvailableTimeout(random(3*PREAMBLE_DURATION,6*PREAMBLE_DURATION));
+        rf95.waitAvailableTimeout(PREAMBLE_DURATION+20);
         uint8_t len = RH_RF95_MAX_MESSAGE_LEN;
         if(rf95.recv(this->rxBuf, &len)){
 #pragma region DEBUG
@@ -171,9 +171,7 @@ void LoRaMultiHop::loop(void){
             }
         }
         else{
-#ifdef DEBUG
             //Serial.println(F("Message receive failed"));
-#endif
         }
         // Reschedule TX and PresetSend to allow for backoff 
         // This is TX: just for breacon and broadcast
@@ -232,7 +230,10 @@ void LoRaMultiHop::reconfigModem(void){
 
     ///< Bw = 500 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on. Fast+short range
     rf95.setModemConfig(RH_RF95::Bw500Cr45Sf128);
-    rf95.setPreambleLength(PREAMBLE_DURATION*390/100); // 100 ms cycle for wakeup
+
+    // 1000 ms = 3906 symbols
+    //rf95.setPreambleLength(3906);
+    rf95.setPreambleLength(round(PREAMBLE_DURATION*390.0/100.0)); // 100 ms cycle for wakeup
     // From my understanding of the datasheet, preamble length in symbols = cycletime * BW / 2^SF. So,
     // for 100ms  cycle at 500 kHz and SF7, preamble = 0.100 * 500000 / 128 = 390.6 symbols.
     // Max value 65535
@@ -652,7 +653,7 @@ bool LoRaMultiHop::forwardRouteDiscoveryMessage(uint8_t * buf, uint8_t len){
     this->updateRouteDiscoveryHeader(buf, len);
 
     // Schedule tx
-    uint8_t backoff =  random(PREAMBLE_DURATION,3*PREAMBLE_DURATION);
+    uint8_t backoff = random(COLLISION_DELAY_MIN,COLLISION_DELAY_MAX);
     this->txTime = DramcoUno.millisWithOffset() + backoff;
     this->txPending = true; 
     this->txLen = len;
