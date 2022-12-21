@@ -56,11 +56,20 @@ def parsePayload(line_parts):
             length_field = int(pl[config.PAYLOAD_LEN_OFFSET], 16)
         except ValueError:
             print("ERROR: length field is not an integer -> ", pl[config.NODE_UID_SIZE])
-
+        except IndexError:
+            print("ERROR: index error")
 
         # extract length of forwarded data (5 Msb) and own data (3 Lsb) from the length field
         own_data_length = (length_field & 0x07)
+
+        # # TODO: dirty fix for 12 byte own data bug
+        # if own_data_length == 4:
+        #     own_data_length = 12
+        #
         forwarded_data_length = ((length_field >> 3) & 0x1F)
+        # # TODO: dirty fix for 12 byte own data bug
+        # if forwarded_data_length < 12:
+        #     forwarded_data_length += 32
 
         own_data = pl[config.PAYLOAD_DATA_OFFSET:(config.PAYLOAD_DATA_OFFSET+own_data_length)]
         if forwarded_data_length > 0:
