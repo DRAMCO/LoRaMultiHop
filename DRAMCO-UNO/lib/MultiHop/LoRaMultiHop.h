@@ -6,7 +6,7 @@
 #include "CircBuffer.h"
 
 
-#define PREAMBLE_DURATION                   1000 // In ms
+#define PREAMBLE_DURATION                   250 // In ms (for now: don't increase)
 
 #define CAD_STABILIZE                       30 // In ms
 #define CAD_DELAY                           PREAMBLE_DURATION*0.625
