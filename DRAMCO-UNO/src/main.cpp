@@ -18,7 +18,7 @@
 #define DRAMCO_UNO_LPP_ACCELEROMETER_MULT   1000
 #define DRAMCO_UNO_LPP_PERCENTAGE_MULT      1
 */
-
+#define APP_MAX_MESSAGE_LENGTH  6
 
 bool newMsg = false;
 bool measureNow = false;
@@ -144,8 +144,8 @@ void loop(){
     
 #endif
 
-    uint8_t data[15];
-    memset(data, 0, 14);
+    uint8_t data[8];
+    memset(data, 0, 8);
     uint8_t i = 0;
 
     //uint16_t vx = DramcoUno.readAccelerationXInt();
@@ -168,7 +168,7 @@ void loop(){
 
     // Add sensor data to preset payload, multihop will take care when it will be sent
     // (within PRESET_MAX_LATENCY)
-    multihop.prepareOwnDataForAggregation(data, 12);
+    multihop.prepareOwnDataForAggregation(data, APP_MAX_MESSAGE_LENGTH);
     
     DramcoUno.interruptOnButtonPress();
   }
