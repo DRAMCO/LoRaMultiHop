@@ -48,18 +48,19 @@ typedef uint8_t Node_UID_t;
 typedef uint8_t Msg_Type_t;
 typedef int16_t Msg_LQI_t;
 
-#define GATEWAY_UID                 0x0000
-#define BROADCAST_UID               0xFFFF
+#define GATEWAY_UID                             0x0000
+#define BROADCAST_UID                           0xFFFF
 
-#define NODE_UID_SIZE               sizeof(Node_UID_t)
-#define MESG_UID_SIZE               sizeof(Msg_UID_t)
-#define MESG_TYPE_SIZE              sizeof(Msg_Type_t)
-#define MESG_HOPS_SIZE              1
-#define MESG_PAYLOAD_LEN_SIZE       1
-#define MESG_LQI_SIZE               sizeof(Msg_LQI_t)
+#define NODE_UID_SIZE                           sizeof(Node_UID_t)
+#define MESG_UID_SIZE                           sizeof(Msg_UID_t)
+#define MESG_TYPE_SIZE                          sizeof(Msg_Type_t)
+#define MESG_HOPS_SIZE                          1
+#define MESG_PAYLOAD_OWN_DATA_LEN_SIZE          1
+#define MESG_PAYLOAD_FORWARDED_DATA_LEN_SIZE    1
+#define MESG_LQI_SIZE                           sizeof(Msg_LQI_t)
 
 // +----------+------+------+-------------+-------------------------+----------+--------------+---------+-------------+----------------------+-----------------+
-// |    0     |  2   |  3   |      4      |            6            |    8     |      9       |    9    |             |                      |                 |
+// |    0     |  2   |  3   |      4      |            6            |    8     |      9       |   10    |             |                      |                 |
 // +----------+------+------+-------------+-------------------------+----------+--------------+---------+-------------+----------------------+-----------------+
 // | MESG_UID | TYPE | HOPS | CUMMUL. LQI | NEXT_UID = PREVIOUS_UID | NODE_UID | PAYLOAD_SIZE | PAYLOAD | (EXTRA_UID) | (EXTRA_PAYLOAD_SIZE) | (EXTRA_PAYLOAD) |
 // +----------+------+------+-------------+-------------------------+----------+--------------+---------+-------------+----------------------+-----------------+
@@ -76,8 +77,9 @@ typedef int16_t Msg_LQI_t;
 #define HEADER_SIZE                     HEADER_PAYLOAD_OFFSET
 
 #define PAYLOAD_NODE_UID_OFFSET         0
-#define PAYLOAD_LEN_OFFSET              (PAYLOAD_NODE_UID_OFFSET + NODE_UID_SIZE)
-#define PAYLOAD_DATA_OFFSET             (PAYLOAD_LEN_OFFSET + MESG_PAYLOAD_LEN_SIZE)
+#define PAYLOAD_OWN_DATA_LEN_OFFSET             (PAYLOAD_NODE_UID_OFFSET + NODE_UID_SIZE)
+#define PAYLOAD_FORWARDED_DATA_LEN_OFFSET       (PAYLOAD_OWN_DATA_LEN_OFFSET + MESG_PAYLOAD_OWN_DATA_LEN_SIZE)
+#define PAYLOAD_DATA_OFFSET                     (PAYLOAD_FORWARDED_DATA_LEN_OFFSET + MESG_PAYLOAD_FORWARDED_DATA_LEN_SIZE)
 
 #define MESSAGE_FLOODBUFFER_SIZE         8
 #define MAX_NUMBER_OF_NEIGHBOURS         8

@@ -767,7 +767,7 @@ bool LoRaMultiHop::prepareOwnDataForAggregation(uint8_t * payload, uint8_t len){
     // forwarded, so we can append this payload to that message
 
     // Check if forward payload does not exceed max length
-    if((len & 0x07) > AGGREGATION_BUFFER_SIZE-HEADER_SIZE-NODE_UID_SIZE-MESG_PAYLOAD_LEN_SIZE){
+    if((len & 0x07) > AGGREGATION_BUFFER_SIZE-HEADER_SIZE-NODE_UID_SIZE-MESG_PAYLOAD_OWN_DATA_LEN_SIZE-MESG_PAYLOAD_FORWARDED_DATA_LEN_SIZE){
         return false;
     }
 
@@ -781,10 +781,10 @@ bool LoRaMultiHop::prepareOwnDataForAggregation(uint8_t * payload, uint8_t len){
 
     // Copy message to buffer
     setFieldInBuffer(this->uid, this->ownDataBuffer, PAYLOAD_NODE_UID_OFFSET, sizeof(Node_UID_t));
-    setFieldInBuffer((len & 0x07), this->ownDataBuffer, PAYLOAD_LEN_OFFSET, MESG_PAYLOAD_LEN_SIZE);
+    setFieldInBuffer(len, this->ownDataBuffer, PAYLOAD_OWN_DATA_LEN_OFFSET, MESG_PAYLOAD_OWN_DATA_LEN_SIZE); // Copy own data
 
     memcpy(this->ownDataBuffer+PAYLOAD_DATA_OFFSET, payload, len);
-    this->ownDataBufferLength = len + NODE_UID_SIZE + MESG_PAYLOAD_LEN_SIZE;
+    this->ownDataBufferLength = len + NODE_UID_SIZE + MESG_PAYLOAD_OWN_DATA_LEN_SIZE + MESG_PAYLOAD_FORWARDED_DATA_LEN_SIZE;
 
     // schedule transmission if needed
     if(this->presetSent){ // start new window
@@ -799,7 +799,7 @@ bool LoRaMultiHop::prepareRxDataForAggregation(uint8_t * payload, uint8_t len){
     // forwarded, so we can append this payload to that message
 
     // Check if forward payload does not exceed max length
-    if(len > TX_BUFFER_SIZE-HEADER_SIZE-NODE_UID_SIZE-MESG_PAYLOAD_LEN_SIZE){
+    if(len > TX_BUFFER_SIZE-HEADER_SIZE-NODE_UID_SIZE-MESG_PAYLOAD_OWN_DATA_LEN_SIZE-MESG_PAYLOAD_FORWARDED_DATA_LEN_SIZE){
 #pragma region DEBUG
 #ifdef DEBUG
         Serial.println(F("Max. message length exceeded. Extra payload will be dropped."));
@@ -855,11 +855,11 @@ bool LoRaMultiHop::sendAggregatedMessage( void ){
     // create dummy payload if no preset data available
     if(this->ownDataBufferLength == 0){
         setFieldInBuffer(this->uid, this->ownDataBuffer, PAYLOAD_NODE_UID_OFFSET, sizeof(Node_UID_t));
-        setFieldInBuffer((uint8_t)(this->forwardedDataBufferLength<<3), this->ownDataBuffer, PAYLOAD_LEN_OFFSET, sizeof(uint8_t));
+        setFieldInBuffer(this->forwardedDataBufferLength, this->ownDataBuffer, PAYLOAD_FORWARDED_DATA_LEN_OFFSET, MESG_PAYLOAD_FORWARDED_DATA_LEN_SIZE);
         this->ownDataBufferLength = 2;
     }
     else{
-        this->ownDataBuffer[PAYLOAD_LEN_OFFSET] |= (uint8_t)(this->forwardedDataBufferLength<<3);
+        this->ownDataBuffer[PAYLOAD_FORWARDED_DATA_LEN_OFFSET] |= this->forwardedDataBufferLength;
     }
 
     // Send message
