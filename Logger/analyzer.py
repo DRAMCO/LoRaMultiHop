@@ -17,7 +17,7 @@ def analyzePayload(payload, node_statistics):
 
 
 def addToPayloadList(source_uid, own_data, node_statistics):
-    if len(own_data) > 2 and int(source_uid) > 0:
+    if len(own_data) > 2 and source_uid != "00":
         # if source_uid == "20":
         #    print(str(own_data))
 
@@ -39,6 +39,7 @@ def addToPayloadList(source_uid, own_data, node_statistics):
             if payload_previous is None:
                 print(payload_previous)
                 print(node_statistics[source_uid]["last_payload"])
+                payload_previous = node_statistics[source_uid]["last_payload"]
                 print("Trouble")
 
             # Process missed payloads
@@ -82,29 +83,26 @@ def runAnalysis(file_name):
     }
 
     node_statistics = {}
-    try:
-        with open(logFile.openFile(file_name)) as json_file:
-            data = json.load(json_file)
-            print("Total number of messages: " + str(data["nr_of_messages"]))
 
-            # first we look for all the different nodes we can find
-            for message in data["messages"]:
-                payload = message["payload"]
-                for e in payload:
-                    analyzePayload(e, node_statistics)
+    with open(logFile.openFile(file_name)) as json_file:
+        data = json.load(json_file)
+        print("Total number of messages: " + str(data["nr_of_messages"]))
 
-            analysed_data["node_statistics"] = node_statistics
-            analysed_data["nr_of_nodes"] = len(node_statistics)
+        # first we look for all the different nodes we can find
+        for message in data["messages"]:
+            payload = message["payload"]
+            for e in payload:
+                analyzePayload(e, node_statistics)
 
-            print(node_statistics)
+        analysed_data["node_statistics"] = node_statistics
+        analysed_data["nr_of_nodes"] = len(node_statistics)
 
-            resultFilename = file_name.replace(".csv", "").replace(".json", "")
-            with io.open(resultFilename + "-analysis.json", 'w', encoding='utf-8') as json_file:
-                json_data = json.dumps(node_statistics, ensure_ascii=False, indent=4)
-                json_file.write(json_data)
+        print(node_statistics)
 
-    except ValueError as err:
-        print("Wrong json format?")
+        resultFilename = file_name.replace(".csv", "").replace(".json", "")
+        with io.open(resultFilename + "-analysis.json", 'w', encoding='utf-8') as json_file:
+            json_data = json.dumps(node_statistics, ensure_ascii=False, indent=4)
+            json_file.write(json_data)
 
 
 def runSignalAnalysis(file_name):

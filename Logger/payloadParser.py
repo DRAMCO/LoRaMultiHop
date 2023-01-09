@@ -18,7 +18,8 @@ def parseLine(line_str):
     else:
         destination_uid = parts[config.MESG_FIRST_BYTE_OFFSET + config.HEADER_NEXT_UID_OFFSET]
     # read payload
-    payload = parsePayload(parts[(config.MESG_FIRST_BYTE_OFFSET + config.HEADER_PAYLOAD_OFFSET):])
+    print(parts)
+    payload = parsePayload(parts[(config.MESG_FIRST_BYTE_OFFSET + config.HEADER_PAYLOAD_OFFSET):], 0)
 
     # general info for this message
     message_info = {
@@ -36,7 +37,7 @@ def parseLine(line_str):
 
 
 # parse the rest of a line
-def parsePayload(line_parts):
+def parsePayload(line_parts, level):
     if not len(line_parts) > 1:
         print("Error parsing appended payload (not enough fields remaining)")
         return {}, []
@@ -67,14 +68,23 @@ def parsePayload(line_parts):
         #     own_data_length = 12
         #
         forwarded_data_length = ((length_field >> 3) & 0x1F)
-        # # TODO: dirty fix for 12 byte own data bug
-        # if forwarded_data_length < 12:
-        #     forwarded_data_length += 32
+        # # TODO: dirty fix for overflow bug
+        if forwarded_data_length > 0 and forwarded_data_length < 8:
+            forwarded_data_length += 32
+
+        # To further fix overflow bug, we can look at remaining message bytes for last forward
+        if level == 0:
+            forwarded_data_length = len(pl) - own_data_length - config.PAYLOAD_DATA_OFFSET
+        if config.IGNORE_ROUTE:
+            forwarded_data_length = len(pl) - own_data_length - config.PAYLOAD_DATA_OFFSET
 
         own_data = pl[config.PAYLOAD_DATA_OFFSET:(config.PAYLOAD_DATA_OFFSET+own_data_length)]
         if forwarded_data_length > 0:
+            print(pl)
             forwarded_data = pl[(config.PAYLOAD_DATA_OFFSET+own_data_length):(config.PAYLOAD_DATA_OFFSET+own_data_length+forwarded_data_length)]
-            forwarded_payload = parsePayload(forwarded_data)
+            if len(forwarded_data) == 0:
+                print("trouble")
+            forwarded_payload = parsePayload(forwarded_data, level+1)
         else:
             forwarded_data = []
             forwarded_payload = []
