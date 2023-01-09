@@ -767,7 +767,7 @@ bool LoRaMultiHop::prepareOwnDataForAggregation(uint8_t * payload, uint8_t len){
     // forwarded, so we can append this payload to that message
 
     // Check if forward payload does not exceed max length
-    if((len & 0x07) > AGGREGATION_BUFFER_SIZE-HEADER_SIZE-NODE_UID_SIZE-MESG_PAYLOAD_OWN_DATA_LEN_SIZE-MESG_PAYLOAD_FORWARDED_DATA_LEN_SIZE){
+    if(len > AGGREGATION_BUFFER_SIZE-HEADER_SIZE-NODE_UID_SIZE-MESG_PAYLOAD_OWN_DATA_LEN_SIZE-MESG_PAYLOAD_FORWARDED_DATA_LEN_SIZE){
         return false;
     }
 
@@ -856,10 +856,10 @@ bool LoRaMultiHop::sendAggregatedMessage( void ){
     if(this->ownDataBufferLength == 0){
         setFieldInBuffer(this->uid, this->ownDataBuffer, PAYLOAD_NODE_UID_OFFSET, sizeof(Node_UID_t));
         setFieldInBuffer(this->forwardedDataBufferLength, this->ownDataBuffer, PAYLOAD_FORWARDED_DATA_LEN_OFFSET, MESG_PAYLOAD_FORWARDED_DATA_LEN_SIZE);
-        this->ownDataBufferLength = 2;
+        this->ownDataBufferLength = NODE_UID_SIZE + MESG_PAYLOAD_OWN_DATA_LEN_SIZE + MESG_PAYLOAD_FORWARDED_DATA_LEN_SIZE;
     }
     else{
-        this->ownDataBuffer[PAYLOAD_FORWARDED_DATA_LEN_OFFSET] |= this->forwardedDataBufferLength;
+        this->ownDataBuffer[PAYLOAD_FORWARDED_DATA_LEN_OFFSET] = this->forwardedDataBufferLength;
     }
 
     // Send message
