@@ -855,6 +855,7 @@ bool LoRaMultiHop::sendAggregatedMessage( void ){
     // create dummy payload if no preset data available
     if(this->ownDataBufferLength == 0){
         setFieldInBuffer(this->uid, this->ownDataBuffer, PAYLOAD_NODE_UID_OFFSET, sizeof(Node_UID_t));
+        setFieldInBuffer(this->ownDataBufferLength, this->ownDataBuffer, PAYLOAD_OWN_DATA_LEN_OFFSET, MESG_PAYLOAD_OWN_DATA_LEN_SIZE);
         setFieldInBuffer(this->forwardedDataBufferLength, this->ownDataBuffer, PAYLOAD_FORWARDED_DATA_LEN_OFFSET, MESG_PAYLOAD_FORWARDED_DATA_LEN_SIZE);
         this->ownDataBufferLength = NODE_UID_SIZE + MESG_PAYLOAD_OWN_DATA_LEN_SIZE + MESG_PAYLOAD_FORWARDED_DATA_LEN_SIZE;
     }
