@@ -194,8 +194,13 @@ void LoRaMultiHop::loop(void){
             this->txTime = now + random(COLLISION_DELAY_MIN,COLLISION_DELAY_MAX);
         }
         else{
-           // handle any preset payload (routed/appended algorithm)
+            // Are there any scheduled messages? 
+            // Handle any preset payload (routed/appended algorithm)
             if(!this->presetSent && (now > this->presetTime)){
+                this->sendAggregatedMessage();
+            }
+            // Handle full buffers, send them now
+            if(!this->presetSent && this->forwardedDataBufferLength >= FORWARDED_BUFFER_THRESHOLD){
                 this->sendAggregatedMessage();
             }
         }
