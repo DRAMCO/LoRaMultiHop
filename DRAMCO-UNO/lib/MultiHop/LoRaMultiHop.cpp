@@ -781,8 +781,9 @@ bool LoRaMultiHop::prepareOwnDataForAggregation(uint8_t * payload, uint8_t len){
 
     // Copy message to buffer
     setFieldInBuffer(this->uid, this->ownDataBuffer, PAYLOAD_NODE_UID_OFFSET, sizeof(Node_UID_t));
-    setFieldInBuffer(len, this->ownDataBuffer, PAYLOAD_OWN_DATA_LEN_OFFSET, MESG_PAYLOAD_OWN_DATA_LEN_SIZE); // Copy own data
+    setFieldInBuffer(len, this->ownDataBuffer, PAYLOAD_OWN_DATA_LEN_OFFSET, MESG_PAYLOAD_OWN_DATA_LEN_SIZE);
 
+    // Copy own data
     memcpy(this->ownDataBuffer+PAYLOAD_DATA_OFFSET, payload, len);
     this->ownDataBufferLength = len + NODE_UID_SIZE + MESG_PAYLOAD_OWN_DATA_LEN_SIZE + MESG_PAYLOAD_FORWARDED_DATA_LEN_SIZE;
 
@@ -855,12 +856,12 @@ bool LoRaMultiHop::sendAggregatedMessage( void ){
     // create dummy payload if no preset data available
     if(this->ownDataBufferLength == 0){
         setFieldInBuffer(this->uid, this->ownDataBuffer, PAYLOAD_NODE_UID_OFFSET, sizeof(Node_UID_t));
-        setFieldInBuffer(this->ownDataBufferLength, this->ownDataBuffer, PAYLOAD_OWN_DATA_LEN_OFFSET, MESG_PAYLOAD_OWN_DATA_LEN_SIZE);
+        setFieldInBuffer(0, this->ownDataBuffer, PAYLOAD_OWN_DATA_LEN_OFFSET, MESG_PAYLOAD_OWN_DATA_LEN_SIZE);
         setFieldInBuffer(this->forwardedDataBufferLength, this->ownDataBuffer, PAYLOAD_FORWARDED_DATA_LEN_OFFSET, MESG_PAYLOAD_FORWARDED_DATA_LEN_SIZE);
         this->ownDataBufferLength = NODE_UID_SIZE + MESG_PAYLOAD_OWN_DATA_LEN_SIZE + MESG_PAYLOAD_FORWARDED_DATA_LEN_SIZE;
     }
     else{
-        this->ownDataBuffer[PAYLOAD_FORWARDED_DATA_LEN_OFFSET] = this->forwardedDataBufferLength;
+        setFieldInBuffer(this->forwardedDataBufferLength, this->ownDataBuffer, PAYLOAD_FORWARDED_DATA_LEN_OFFSET, MESG_PAYLOAD_FORWARDED_DATA_LEN_SIZE);
     }
 
     // Send message
