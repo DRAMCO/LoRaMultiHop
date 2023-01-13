@@ -404,11 +404,16 @@ bool LoRaMultiHop::sendMessage(MsgType_t type){
 
         case MESG_ROUTED:{
             this->setFieldInBuffer(this->uid, this->txBuf, HEADER_PREVIOUS_UID_OFFSET, sizeof(Node_UID_t));
+
+#ifdef FIXED_VIA
+            this->setFieldInBuffer(FIXED_VIA, this->txBuf, HEADER_NEXT_UID_OFFSET, sizeof(Node_UID_t));
+#else
             if(this->bestRoute != NULL){
                 this->setFieldInBuffer(this->bestRoute->viaNode, this->txBuf, HEADER_NEXT_UID_OFFSET, sizeof(Node_UID_t));
             }
             else{
                 this->setFieldInBuffer(0, this->txBuf, HEADER_NEXT_UID_OFFSET, sizeof(Node_UID_t));
+#endif
 #pragma region DEBUG
 #ifdef DEBUG
                 Serial.println(F("No route to gateway established yet."));
