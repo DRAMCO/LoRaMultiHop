@@ -1,5 +1,5 @@
-#define FIXED_VIA 0x04
-#define HARDWARE_VERSION 2
+#ifndef __CONSTANTS_H__
+#define __CONSTANTS_H__
 
 #if NODE_UID == 0x00
     #define COMPILE_FOR_GATEWAY
@@ -98,3 +98,5 @@
     // #define FIXED_VIA 0x20
     // #define HARDWARE_VERSION 1
 #endif
+
+#endif /*__CONSTANTS_H__*/
