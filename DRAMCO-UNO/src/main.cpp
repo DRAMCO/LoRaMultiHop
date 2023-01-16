@@ -2,6 +2,7 @@
 // Extra low power: disable 3v3 regulator on Dramco Uno => EXTRA CAPS NEEDED ON VCC RF95 (100nF // 10nF)
 
 #include <Arduino.h>
+#include "constants.h"
 #include "LoRaMultiHop.h"
 
 #include "Dramco-UNO-Sensors.h"
