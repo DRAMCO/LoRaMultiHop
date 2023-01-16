@@ -380,6 +380,7 @@ bool LoRaMultiHop::sendMessage(MsgType_t type){
         Serial.println(F("Payload is too long."));
     }
 #endif
+
 #pragma endregion
 
     // Generate message uid
@@ -776,9 +777,38 @@ bool LoRaMultiHop::prepareOwnDataForAggregation(uint8_t * payload, uint8_t len){
     // Preset payload ready for sending; we'll wait for a message that needs to be
     // forwarded, so we can append this payload to that message
 
-    // Check if forward payload does not exceed max length
-    if(len > AGGREGATION_BUFFER_SIZE-HEADER_SIZE-NODE_UID_SIZE-MESG_PAYLOAD_OWN_DATA_LEN_SIZE-MESG_PAYLOAD_FORWARDED_DATA_LEN_SIZE){
-        return false;
+    // Put data in own data buffer
+    if(this->ownDataBufferLength == 0){ // no data in buffer yet
+        if(len > OWN_DATA_BUFFER_SIZE - (NODE_UID_SIZE + MESG_PAYLOAD_OWN_DATA_LEN_SIZE + MESG_PAYLOAD_FORWARDED_DATA_LEN_SIZE) - this->ownDataBufferLength){
+            return false;
+        }
+
+        // Copy message to buffer
+        setFieldInBuffer(this->uid, this->ownDataBuffer, PAYLOAD_NODE_UID_OFFSET, sizeof(Node_UID_t));
+        setFieldInBuffer(len, this->ownDataBuffer, PAYLOAD_OWN_DATA_LEN_OFFSET, MESG_PAYLOAD_OWN_DATA_LEN_SIZE);
+
+        // Copy own data
+        memcpy(this->ownDataBuffer+PAYLOAD_DATA_OFFSET, payload, len);
+        this->ownDataBufferLength = len + NODE_UID_SIZE + MESG_PAYLOAD_OWN_DATA_LEN_SIZE + MESG_PAYLOAD_FORWARDED_DATA_LEN_SIZE;
+    }
+    else{ // append data to buffer
+        if(len > OWN_DATA_BUFFER_SIZE - this->ownDataBufferLength){
+            return false;
+        }
+        // update length field
+        uint8_t previousLength;
+        getFieldFromBuffer((BaseType_t*)(&previousLength), this->ownDataBuffer, PAYLOAD_OWN_DATA_LEN_OFFSET, MESG_PAYLOAD_OWN_DATA_LEN_SIZE);
+        setFieldInBuffer(previousLength+len, this->ownDataBuffer, PAYLOAD_OWN_DATA_LEN_OFFSET, MESG_PAYLOAD_OWN_DATA_LEN_SIZE);
+
+        // Copy own data
+        memcpy(this->ownDataBuffer+PAYLOAD_DATA_OFFSET+previousLength, payload, len);
+        this->ownDataBufferLength += len;
+    }
+
+    // schedule transmission if needed
+    if(this->presetSent){ // start new window
+        this->presetSent = false;
+        this->presetTime = DramcoUno.millisWithOffset() + random(this->latency - AGGREGATION_TIMER_RANDOM, this->latency + AGGREGATION_TIMER_RANDOM);
     }
 
 #pragma region DEBUG
@@ -789,19 +819,6 @@ bool LoRaMultiHop::prepareOwnDataForAggregation(uint8_t * payload, uint8_t len){
 #endif
 #pragma endregion
 
-    // Copy message to buffer
-    setFieldInBuffer(this->uid, this->ownDataBuffer, PAYLOAD_NODE_UID_OFFSET, sizeof(Node_UID_t));
-    setFieldInBuffer(len, this->ownDataBuffer, PAYLOAD_OWN_DATA_LEN_OFFSET, MESG_PAYLOAD_OWN_DATA_LEN_SIZE);
-
-    // Copy own data
-    memcpy(this->ownDataBuffer+PAYLOAD_DATA_OFFSET, payload, len);
-    this->ownDataBufferLength = len + NODE_UID_SIZE + MESG_PAYLOAD_OWN_DATA_LEN_SIZE + MESG_PAYLOAD_FORWARDED_DATA_LEN_SIZE;
-
-    // schedule transmission if needed
-    if(this->presetSent){ // start new window
-        this->presetSent = false;
-        this->presetTime = DramcoUno.millisWithOffset() + random(this->latency - AGGREGATION_TIMER_RANDOM, this->latency + AGGREGATION_TIMER_RANDOM);
-    }
     return true;
 }
 
