@@ -201,12 +201,10 @@ void LoRaMultiHop::loop(void){
             }
             // Handle full overflow buffers, send them now
             if(this->presetSent && this->forwardedDataOverflowInUse){
-                // copy from overflow to forward en send
-                memcpy(this->forwardedDataBuffer, this->forwardedDataBufferOverflow, this->forwardedDataBufferOverflowLength);
-                this->forwardedDataBufferLength = this->forwardedDataBufferOverflowLength;
+                uint8_t len = this->forwardedDataBufferOverflowLength;
                 this->forwardedDataBufferOverflowLength = 0;
                 this->forwardedDataOverflowInUse = false;
-                // GUUS: reschedule (presettime or txtime)
+                this->prepareRxDataForAggregation(this->forwardedDataBufferOverflow, len);
             }
         }
 
@@ -877,7 +875,7 @@ bool LoRaMultiHop::prepareRxDataForAggregation(uint8_t * payload, uint8_t len){
     }
 
     // schedule transmission if needed
-    if(this->ownDataBufferLength + this->forwardedDataBufferLength > PAYLOAD_TX_THRESHOLD){
+    if((this->ownDataBufferLength + this->forwardedDataBufferLength > PAYLOAD_TX_THRESHOLD) || this->forwardedDataOverflowInUse){
 #pragma region DEBUG
 #ifdef DEBUG
     Serial.print(F("Buffer fill threshold exceeded: transmit rescheduled."));
