@@ -47,8 +47,9 @@
 #define OWN_DATA_BUFFER_SIZE                24
 #define FORWARDED_BUFFER_SIZE               96
 #define FORWARDED_BUFFER_THRESHOLD          FORWARDED_BUFFER_SIZE * 0.75
+#define ROUTING_EXTRA_SIZE                  30
 #define AGGREGATION_BUFFER_SIZE             (OWN_DATA_BUFFER_SIZE + FORWARDED_BUFFER_SIZE)    // Max preset buffer size 
-#define TX_BUFFER_SIZE                      (HEADER_SIZE + AGGREGATION_BUFFER_SIZE + 2)     // Max preset buffer size 
+#define TX_BUFFER_SIZE                      (HEADER_SIZE + AGGREGATION_BUFFER_SIZE + ROUTING_EXTRA_SIZE + 2)     // Max preset buffer size 
 #define PAYLOAD_TX_THRESHOLD                64
 
 #define PIN_ENABLE_3V3                      8
@@ -184,8 +185,11 @@ class LoRaMultiHop{
 
         uint8_t ownDataBuffer[OWN_DATA_BUFFER_SIZE];
         uint8_t forwardedDataBuffer[FORWARDED_BUFFER_SIZE];
+        uint8_t forwardedDataBufferOverflow[FORWARDED_BUFFER_SIZE];
         uint8_t ownDataBufferLength = 0;
         uint8_t forwardedDataBufferLength = 0;
+        uint8_t forwardedDataBufferOverflowLength = 0;
+        bool forwardedDataOverflowInUse = false;
         unsigned long presetTime;
         bool presetSent = true;
         uint32_t latency;

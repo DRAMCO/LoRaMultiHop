@@ -199,11 +199,17 @@ void LoRaMultiHop::loop(void){
             if(!this->presetSent && (now > this->presetTime)){
                 this->sendAggregatedMessage();
             }
-            // Handle full buffers, send them now
-            if(!this->presetSent && this->forwardedDataBufferLength >= FORWARDED_BUFFER_THRESHOLD){
-                this->sendAggregatedMessage();
+            // Handle full overflow buffers, send them now
+            if(this->presetSent && this->forwardedDataOverflowInUse){
+                // copy from overflow to forward en send
+                memcpy(this->forwardedDataBuffer, this->forwardedDataBufferOverflow, this->forwardedDataBufferOverflowLength);
+                this->forwardedDataBufferLength = this->forwardedDataBufferOverflowLength;
+                this->forwardedDataBufferOverflowLength = 0;
+                this->forwardedDataOverflowInUse = false;
+                // GUUS: reschedule (presettime or txtime)
             }
         }
+
         rf95.sleep();
     }
     
@@ -855,11 +861,28 @@ bool LoRaMultiHop::prepareRxDataForAggregation(uint8_t * payload, uint8_t len){
 #endif
 #pragma endregion
 
-    memcpy((this->forwardedDataBuffer + this->forwardedDataBufferLength), payload, len);
-    this->forwardedDataBufferLength += len;
+    if( this->forwardedDataBufferLength+len > FORWARDED_BUFFER_SIZE ){ // use overflow buffer -> handled in loop
+        memcpy((this->forwardedDataBufferOverflow), payload, len);
+        this->forwardedDataBufferOverflowLength = len;
+        this->forwardedDataOverflowInUse = true;
+#pragma region DEBUG
+#ifdef DEBUG
+    Serial.println(F("Using data forward overflow buffer."));
+#endif
+#pragma endregion
+    }
+    else{
+        memcpy((this->forwardedDataBuffer + this->forwardedDataBufferLength), payload, len);
+        this->forwardedDataBufferLength += len;
+    }
 
     // schedule transmission if needed
     if(this->ownDataBufferLength + this->forwardedDataBufferLength > PAYLOAD_TX_THRESHOLD){
+#pragma region DEBUG
+#ifdef DEBUG
+    Serial.print(F("Buffer fill threshold exceeded: transmit rescheduled."));
+#endif
+#pragma endregion
         this->presetSent = false;
         this->presetTime = DramcoUno.millisWithOffset();
     }
