@@ -14,6 +14,16 @@
 #define CAD_DELAY_MIN                       CAD_DELAY - CAD_DELAY_RANDOM
 #define CAD_DELAY_MAX                       CAD_DELAY + CAD_DELAY_RANDOM
 
+#define HEADER_MESG_UID_OFFSET          0
+#define HEADER_TYPE_OFFSET              (HEADER_MESG_UID_OFFSET + MESG_UID_SIZE)
+#define HEADER_HOPS_OFFSET              (HEADER_TYPE_OFFSET + MESG_TYPE_SIZE)
+#define HEADER_LQI_OFFSET               (HEADER_HOPS_OFFSET + MESG_HOPS_SIZE)
+#define HEADER_NEXT_UID_OFFSET          (HEADER_LQI_OFFSET + MESG_LQI_SIZE)     // 3 + 1 = 4
+#define HEADER_PREVIOUS_UID_OFFSET      (HEADER_LQI_OFFSET + MESG_LQI_SIZE)
+//#define HEADER_PREVIOUS_UID_OFFSET    (HEADER_NEXT_UID_OFFSET + MESG_TYPE_SIZE) // saves 2 bytes
+#define HEADER_PAYLOAD_OFFSET           (HEADER_PREVIOUS_UID_OFFSET + NODE_UID_SIZE)
+#define HEADER_SIZE                     (HEADER_PAYLOAD_OFFSET)
+
 // #define AGGREGATION_TIMER_MIN               (MEASURE_INTERVAL/2)-10000L // In ms
 // #define AGGREGATION_TIMER_MAX               (MEASURE_INTERVAL/2)+10000L // In ms
 // #define AGGREGATION_TIMER_RANDOM            1000 // Random window around PRESET_MAX_LATENCY
@@ -69,15 +79,7 @@ typedef int16_t Msg_LQI_t;
 // +----------+------+------+-------------+-------------------------+----------+------------------+------------------------+---------+----------------------+-----------------+
 //                                                                  | Payload starts here
 
-#define HEADER_MESG_UID_OFFSET          0
-#define HEADER_TYPE_OFFSET              (HEADER_MESG_UID_OFFSET + MESG_UID_SIZE)
-#define HEADER_HOPS_OFFSET              (HEADER_TYPE_OFFSET + MESG_TYPE_SIZE)
-#define HEADER_LQI_OFFSET               (HEADER_HOPS_OFFSET + MESG_HOPS_SIZE)
-#define HEADER_NEXT_UID_OFFSET          (HEADER_LQI_OFFSET + MESG_LQI_SIZE)     // 3 + 1 = 4
-#define HEADER_PREVIOUS_UID_OFFSET      (HEADER_LQI_OFFSET + MESG_LQI_SIZE)
-//#define HEADER_PREVIOUS_UID_OFFSET    (HEADER_NEXT_UID_OFFSET + MESG_TYPE_SIZE) // saves 2 bytes
-#define HEADER_PAYLOAD_OFFSET           (HEADER_PREVIOUS_UID_OFFSET + NODE_UID_SIZE)
-#define HEADER_SIZE                     HEADER_PAYLOAD_OFFSET
+
 
 #define PAYLOAD_NODE_UID_OFFSET         0
 #define PAYLOAD_OWN_DATA_LEN_OFFSET             (PAYLOAD_NODE_UID_OFFSET + NODE_UID_SIZE)
