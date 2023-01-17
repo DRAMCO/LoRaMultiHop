@@ -447,7 +447,7 @@ bool LoRaMultiHop::sendMessage(MsgType_t type){
     // copy aggregated data to tx buffer
     if(this->forwardedDataBufferLength > 0){
         // copy payload to tx Buffer
-        uint8_t * pPtr = (this->txBuf + HEADER_PAYLOAD_OFFSET+this->ownDataBufferLength);
+        uint8_t * pPtr = (this->txBuf + HEADER_PAYLOAD_OFFSET + this->ownDataBufferLength);
         memcpy(pPtr, this->forwardedDataBuffer, this->forwardedDataBufferLength);
     }
 
@@ -798,10 +798,10 @@ bool LoRaMultiHop::prepareOwnDataForAggregation(uint8_t * payload, uint8_t len){
         // update length field
         uint8_t previousLength;
         getFieldFromBuffer((BaseType_t*)(&previousLength), this->ownDataBuffer, PAYLOAD_OWN_DATA_LEN_OFFSET, MESG_PAYLOAD_OWN_DATA_LEN_SIZE);
-        setFieldInBuffer(previousLength+len, this->ownDataBuffer, PAYLOAD_OWN_DATA_LEN_OFFSET, MESG_PAYLOAD_OWN_DATA_LEN_SIZE);
+        setFieldInBuffer((BaseType_t)(previousLength+len), this->ownDataBuffer, PAYLOAD_OWN_DATA_LEN_OFFSET, MESG_PAYLOAD_OWN_DATA_LEN_SIZE);
 
         // Copy own data
-        memcpy(this->ownDataBuffer+PAYLOAD_DATA_OFFSET+previousLength, payload, len);
+        memcpy(this->ownDataBuffer+this->ownDataBufferLength, payload, len);
         this->ownDataBufferLength += len;
     }
 
