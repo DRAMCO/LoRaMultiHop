@@ -808,7 +808,7 @@ bool LoRaMultiHop::prepareOwnDataForAggregation(uint8_t * payload, uint8_t len){
     // schedule transmission if needed
     if(this->presetSent){ // start new window
         this->presetSent = false;
-        this->presetTime = DramcoUno.millisWithOffset() + random(this->latency - AGGREGATION_TIMER_RANDOM, this->latency + AGGREGATION_TIMER_RANDOM);
+        this->presetTime = DramcoUno.millisWithOffset() + random(max(0, (int32_t) this->latency - AGGREGATION_TIMER_RANDOM), this->latency + AGGREGATION_TIMER_RANDOM);
     }
 
 #pragma region DEBUG
@@ -816,6 +816,17 @@ bool LoRaMultiHop::prepareOwnDataForAggregation(uint8_t * payload, uint8_t len){
     Serial.print(F("Preset payload, will send after "));
     Serial.print(this->latency);
     Serial.println(F(" ms."));
+
+    Serial.print(F("Own data buffer: "));
+    for(uint8_t i=0; i<this->ownDataBufferLength; i++){
+        if(this->ownDataBuffer[i] < 16){
+            Serial.print('0');
+        }
+        Serial.print(this->ownDataBuffer[i], HEX);
+        Serial.print(' ');
+    }
+    Serial.println();
+
 #endif
 #pragma endregion
 
@@ -855,7 +866,7 @@ bool LoRaMultiHop::prepareRxDataForAggregation(uint8_t * payload, uint8_t len){
     else{
         if(this->presetSent){ // start new window
             this->presetSent = false;
-            this->presetTime = DramcoUno.millisWithOffset() + random(this->latency - AGGREGATION_TIMER_RANDOM, this->latency + AGGREGATION_TIMER_RANDOM);
+            this->presetTime = DramcoUno.millisWithOffset() + random(max(0, (int32_t) this->latency - AGGREGATION_TIMER_RANDOM), this->latency + AGGREGATION_TIMER_RANDOM);
         }
     }
 

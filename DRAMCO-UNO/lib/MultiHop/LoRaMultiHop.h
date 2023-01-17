@@ -20,7 +20,9 @@
 // #define AGGREGATION_TIMER_UPSTEP            10000
 // #define AGGREGATION_TIMER_DOWNSTEP          0
 
+#ifndef AGGREGATION_TIMER_NOMINAL
 #define AGGREGATION_TIMER_NOMINAL           MEASURE_INTERVAL/2+60000UL// in ms
+#endif
 #define AGGREGATION_TIMER_MIN               0 // In ms
 #define AGGREGATION_TIMER_MAX               AGGREGATION_TIMER_NOMINAL+60000 // In ms
 #define AGGREGATION_TIMER_RANDOM            90000 // Random window around PRESET_MAX_LATENCY
