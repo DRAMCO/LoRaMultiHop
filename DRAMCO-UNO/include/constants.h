@@ -56,8 +56,8 @@
     // #define FIXED_VIA 0x20
     // #define HARDWARE_VERSION 1
 #elif NODE_UID == 0x17
-    // #define FIXED_VIA 0x20
-    // #define HARDWARE_VERSION 1
+    #define FIXED_VIA 0x22
+    #define HARDWARE_VERSION 2
 #elif NODE_UID == 0x18
     #define FIXED_VIA 0x09
     #define HARDWARE_VERSION 2
@@ -71,8 +71,8 @@
     #define FIXED_VIA 0x00
     #define HARDWARE_VERSION 2
 #elif NODE_UID == 0x22
-    // #define FIXED_VIA 0x20
-    // #define HARDWARE_VERSION 1
+    #define FIXED_VIA 0x00
+    #define HARDWARE_VERSION 2
 #elif NODE_UID == 0x23
     // #define FIXED_VIA 0x20
     // #define HARDWARE_VERSION 1

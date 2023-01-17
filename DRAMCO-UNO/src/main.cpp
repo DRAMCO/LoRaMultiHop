@@ -169,7 +169,9 @@ void loop(){
 
     // Add sensor data to preset payload, multihop will take care when it will be sent
     // (within PRESET_MAX_LATENCY)
-    multihop.prepareOwnDataForAggregation(data, APP_MAX_MESSAGE_LENGTH);
+    if(!multihop.prepareOwnDataForAggregation(data, APP_MAX_MESSAGE_LENGTH)){
+      ctr--;
+    }
     
     DramcoUno.interruptOnButtonPress();
   }
