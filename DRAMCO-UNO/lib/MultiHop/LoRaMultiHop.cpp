@@ -796,9 +796,9 @@ bool LoRaMultiHop::prepareOwnDataForAggregation(uint8_t * payload, uint8_t len){
             return false;
         }
         // update length field
-        uint8_t previousLength;
-        getFieldFromBuffer((BaseType_t*)(&previousLength), this->ownDataBuffer, PAYLOAD_OWN_DATA_LEN_OFFSET, MESG_PAYLOAD_OWN_DATA_LEN_SIZE);
-        setFieldInBuffer((BaseType_t)(previousLength+len), this->ownDataBuffer, PAYLOAD_OWN_DATA_LEN_OFFSET, MESG_PAYLOAD_OWN_DATA_LEN_SIZE);
+        BaseType_t previousLength;
+        getFieldFromBuffer(&previousLength, this->ownDataBuffer, PAYLOAD_OWN_DATA_LEN_OFFSET, MESG_PAYLOAD_OWN_DATA_LEN_SIZE);
+        setFieldInBuffer((previousLength+len), this->ownDataBuffer, PAYLOAD_OWN_DATA_LEN_OFFSET, MESG_PAYLOAD_OWN_DATA_LEN_SIZE);
 
         // Copy own data
         memcpy(this->ownDataBuffer+this->ownDataBufferLength, payload, len);
