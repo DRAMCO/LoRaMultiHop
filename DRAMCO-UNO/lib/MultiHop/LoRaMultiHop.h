@@ -193,6 +193,7 @@ class LoRaMultiHop{
         bool forwardedDataOverflowInUse = false;
         unsigned long presetTime;
         bool presetSent = true;
+        bool sendOwnData = true;
         uint32_t latency;
 
         CircBuffer floodBuffer;

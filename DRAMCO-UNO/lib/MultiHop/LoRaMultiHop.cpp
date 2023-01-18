@@ -449,10 +449,21 @@ bool LoRaMultiHop::sendMessage(MsgType_t type){
 #endif
 #pragma endregion
 
-    if(this->ownDataBufferLength > 0){
+    if(this->sendOwnData && this->ownDataBufferLength > 0){
         // copy payload to tx Buffer
         uint8_t * pPtr = (this->txBuf + HEADER_PAYLOAD_OFFSET);
         memcpy(pPtr, this->ownDataBuffer, this->ownDataBufferLength);
+    }
+    
+    // If we can't send our own data (probably because message is overflowing), just add the payload header values
+    if(!this->sendOwnData){
+        uint8_t info[PAYLOAD_DATA_OFFSET];
+        setFieldInBuffer(this->uid, info, PAYLOAD_NODE_UID_OFFSET, sizeof(Node_UID_t));
+        setFieldInBuffer(0, info, PAYLOAD_OWN_DATA_LEN_OFFSET, MESG_PAYLOAD_OWN_DATA_LEN_SIZE);
+        setFieldInBuffer(this->forwardedDataBufferLength, info, PAYLOAD_FORWARDED_DATA_LEN_OFFSET, MESG_PAYLOAD_FORWARDED_DATA_LEN_SIZE);
+
+        uint8_t * pPtr = (this->txBuf + HEADER_PAYLOAD_OFFSET);
+        memcpy(pPtr, info, this->ownDataBufferLength);
     }
     
     // copy aggregated data to tx buffer
@@ -871,9 +882,21 @@ bool LoRaMultiHop::prepareRxDataForAggregation(uint8_t * payload, uint8_t len){
 #pragma endregion
 
     // Check length of incoming packet
-    // If sum own data, forwarded and incoming is too big: move incoming to oveflow buffer
+    // If sum is too big: move incoming to oveflow buffer
     // and schedule pending packet NOW.
-    if( this->ownDataBufferLength + this->forwardedDataBufferLength + len > PAYLOAD_TX_THRESHOLD_START - PAYLOAD_TX_THRESHOLD_MINUS_PER_HOP*this->bestRoute->hopsToGateway ){ // use overflow buffer -> handled in loop
+
+    bool sendWithOverflow = false;
+    // First check without own data, if this is too big, send the forwarded without own data
+    if(this->forwardedDataBufferLength + len >= PAYLOAD_TX_THRESHOLD_START - PAYLOAD_TX_THRESHOLD_MINUS_PER_HOP*this->bestRoute->hopsToGateway ){ 
+        sendWithOverflow = true;
+        this->sendOwnData = false;
+    }
+    // Can we manage to add our own data? if this gets too big, send the own data and forwarded data
+    else if( this->ownDataBufferLength + this->forwardedDataBufferLength + len >= PAYLOAD_TX_THRESHOLD_START - PAYLOAD_TX_THRESHOLD_MINUS_PER_HOP*this->bestRoute->hopsToGateway ){
+        sendWithOverflow = true;
+        this->sendOwnData = true;
+    }
+    if(sendWithOverflow){
         memcpy((this->forwardedDataBufferOverflow), payload, len);
         this->forwardedDataBufferOverflowLength = len;
         this->forwardedDataOverflowInUse = true;
