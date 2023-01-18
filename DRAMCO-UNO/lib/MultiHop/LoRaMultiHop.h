@@ -46,11 +46,12 @@
 
 #define OWN_DATA_BUFFER_SIZE                24
 #define FORWARDED_BUFFER_SIZE               96
-#define FORWARDED_BUFFER_THRESHOLD          FORWARDED_BUFFER_SIZE * 0.75
 #define ROUTING_EXTRA_SIZE                  30
 #define AGGREGATION_BUFFER_SIZE             (OWN_DATA_BUFFER_SIZE + FORWARDED_BUFFER_SIZE)    // Max preset buffer size 
 #define TX_BUFFER_SIZE                      (HEADER_SIZE + AGGREGATION_BUFFER_SIZE + ROUTING_EXTRA_SIZE + 2)     // Max preset buffer size 
-#define PAYLOAD_TX_THRESHOLD                64
+
+#define PAYLOAD_TX_THRESHOLD_START          108
+#define PAYLOAD_TX_THRESHOLD_MINUS_PER_HOP  3
 
 #define PIN_ENABLE_3V3                      8
 #define PIN_MODEM_SS                        6

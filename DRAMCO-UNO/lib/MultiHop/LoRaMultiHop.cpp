@@ -109,6 +109,17 @@ bool LoRaMultiHop::begin(){
 #endif
 #pragma endregion
     
+#if defined(FIXED_VIA) && defined(FIXED_HOPS)
+    RouteToGatewayInfo_t neighbour;
+    neighbour.lastGatewayBeacon = (Msg_UID_t)0x00;
+    neighbour.hopsToGateway = (uint8_t)FIXED_HOPS;
+    neighbour.viaNode = (Node_UID_t)FIXED_VIA;
+    neighbour.lastSnr = 0;
+    neighbour.lastRssi = 0;
+    neighbour.cumLqi = 0;
+    neighbour.isBest = true;
+    this->bestRoute = &neighbour;
+#endif
     return true;
 }
 
@@ -410,9 +421,6 @@ bool LoRaMultiHop::sendMessage(MsgType_t type){
         case MESG_ROUTED:{
             this->setFieldInBuffer(this->uid, this->txBuf, HEADER_PREVIOUS_UID_OFFSET, sizeof(Node_UID_t));
 
-#ifdef FIXED_VIA
-            this->setFieldInBuffer(FIXED_VIA, this->txBuf, HEADER_NEXT_UID_OFFSET, sizeof(Node_UID_t));
-#else
             if(this->bestRoute != NULL){
                 this->setFieldInBuffer(this->bestRoute->viaNode, this->txBuf, HEADER_NEXT_UID_OFFSET, sizeof(Node_UID_t));
             }
@@ -424,7 +432,6 @@ bool LoRaMultiHop::sendMessage(MsgType_t type){
 #endif
 #pragma endregion
             }
-#endif
         } break;
 
         case MESG_BROADCAST:{
@@ -504,6 +511,7 @@ bool LoRaMultiHop::addMessageToFloodBuffer(MsgInfo_t * mInfo){
 }
 
 bool LoRaMultiHop::updateNeighbours(RouteToGatewayInfo_t &neighbour){
+#if !(defined(FIXED_VIA) && defined(FIXED_HOPS))
     bool neighbourInList = false;
     for(uint8_t i=0; i<this->numberOfNeighbours; i++){ // look up neighbour in the list
         if(neighbour.viaNode == this->neighbours[i].viaNode){ // neighbour is in the list -> update info
@@ -530,6 +538,7 @@ bool LoRaMultiHop::updateNeighbours(RouteToGatewayInfo_t &neighbour){
         }
         // TODO: else -> replace worst neighbour if this one is better
     }
+#endif
     return false;
 }
 
@@ -539,6 +548,7 @@ Msg_LQI_t LoRaMultiHop::computeCummulativeLQI(Msg_LQI_t previousCummulativeLQI, 
 }
 
 void LoRaMultiHop::updateRouteToGateway(){
+#if !(defined(FIXED_VIA) && defined(FIXED_HOPS))  
     // default best route is first neighbour
     uint8_t idxBestRoute = 0;
     
@@ -569,6 +579,7 @@ void LoRaMultiHop::updateRouteToGateway(){
     // idxBestRoute should now point to the best route
     this->neighbours[idxBestRoute].isBest = true;
     this->bestRoute = this->neighbours+idxBestRoute;
+#endif
 }
 
 void LoRaMultiHop::printNeighbours(){
@@ -859,32 +870,29 @@ bool LoRaMultiHop::prepareRxDataForAggregation(uint8_t * payload, uint8_t len){
 #endif
 #pragma endregion
 
-    if( this->forwardedDataBufferLength+len > FORWARDED_BUFFER_SIZE ){ // use overflow buffer -> handled in loop
+    // Check length of incoming packet
+    // If sum own data, forwarded and incoming is too big: move incoming to oveflow buffer
+    // and schedule pending packet NOW.
+    if( this->ownDataBufferLength + this->forwardedDataBufferLength + len > PAYLOAD_TX_THRESHOLD_START - PAYLOAD_TX_THRESHOLD_MINUS_PER_HOP*this->bestRoute->hopsToGateway ){ // use overflow buffer -> handled in loop
         memcpy((this->forwardedDataBufferOverflow), payload, len);
         this->forwardedDataBufferOverflowLength = len;
         this->forwardedDataOverflowInUse = true;
 #pragma region DEBUG
 #ifdef DEBUG
     Serial.println(F("Using data forward overflow buffer."));
-#endif
-#pragma endregion
-    }
-    else{
-        memcpy((this->forwardedDataBuffer + this->forwardedDataBufferLength), payload, len);
-        this->forwardedDataBufferLength += len;
-    }
-
-    // schedule transmission if needed
-    if((this->ownDataBufferLength + this->forwardedDataBufferLength > PAYLOAD_TX_THRESHOLD) || this->forwardedDataOverflowInUse){
-#pragma region DEBUG
-#ifdef DEBUG
-    Serial.print(F("Buffer fill threshold exceeded: transmit rescheduled."));
+    Serial.print(F("Overflow buffer: "));
+    printBuffer(this->forwardedDataBufferOverflow, this->forwardedDataBufferOverflowLength);
+    Serial.println(F("Forward data buffer: "));
+    printBuffer(this->forwardedDataBuffer, this->forwardedDataBufferLength);
 #endif
 #pragma endregion
         this->presetSent = false;
         this->presetTime = DramcoUno.millisWithOffset();
     }
     else{
+        memcpy((this->forwardedDataBuffer + this->forwardedDataBufferLength), payload, len);
+        this->forwardedDataBufferLength += len;
+
         if(this->presetSent){ // start new window
             this->presetSent = false;
             this->presetTime = DramcoUno.millisWithOffset() + random(max(0, (int32_t) this->latency - AGGREGATION_TIMER_RANDOM), this->latency + AGGREGATION_TIMER_RANDOM);
