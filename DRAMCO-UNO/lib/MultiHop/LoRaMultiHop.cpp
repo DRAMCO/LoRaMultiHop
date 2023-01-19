@@ -110,15 +110,24 @@ bool LoRaMultiHop::begin(){
 #pragma endregion
     
 #if defined(FIXED_VIA) && defined(FIXED_HOPS)
-    RouteToGatewayInfo_t neighbour;
-    neighbour.lastGatewayBeacon = (Msg_UID_t)0x00;
-    neighbour.hopsToGateway = (uint8_t)FIXED_HOPS;
-    neighbour.viaNode = (Node_UID_t)FIXED_VIA;
-    neighbour.lastSnr = 0;
-    neighbour.lastRssi = 0;
-    neighbour.cumLqi = 0;
-    neighbour.isBest = true;
-    this->bestRoute = &neighbour;
+    neighbours[0].lastGatewayBeacon = (Msg_UID_t)0x00;
+    neighbours[0].hopsToGateway = (uint8_t)FIXED_HOPS;
+    neighbours[0].viaNode = (Node_UID_t)FIXED_VIA;
+    neighbours[0].lastSnr = 0;
+    neighbours[0].lastRssi = 0;
+    neighbours[0].cumLqi = 0;
+    neighbours[0].isBest = true;
+    this->bestRoute = neighbours;
+
+#pragma region DEBUG
+#ifdef DEBUG
+    Serial.print(F("Fixed via: "));
+    Serial.print(this->bestRoute->viaNode, HEX);
+    Serial.print(F(" in hops: "));
+    Serial.print(this->bestRoute->hopsToGateway, HEX);
+#endif
+#pragma endregion
+
 #endif
     return true;
 }

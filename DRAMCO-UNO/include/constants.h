@@ -87,8 +87,8 @@
     #define FIXED_HOPS 0
     #define HARDWARE_VERSION 2
 #elif NODE_UID == 0x22
-    #define FIXED_VIA 0x00
-    #define FIXED_HOPS 0
+    #define FIXED_VIA 0x05
+    #define FIXED_HOPS 2
     #define HARDWARE_VERSION 2
 #elif NODE_UID == 0x23
     // #define FIXED_VIA 0x20
