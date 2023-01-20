@@ -458,10 +458,13 @@ bool LoRaMultiHop::sendMessage(MsgType_t type){
 #endif
 #pragma endregion
 
+    uint8_t ownDataLength = 0;
+
     if(this->sendOwnData && this->ownDataBufferLength > 0){
         // copy payload to tx Buffer
         uint8_t * pPtr = (this->txBuf + HEADER_PAYLOAD_OFFSET);
         memcpy(pPtr, this->ownDataBuffer, this->ownDataBufferLength);
+        ownDataLength = this->ownDataBufferLength;
     }
     
     // If we can't send our own data (probably because message is overflowing), just add the payload header values
@@ -472,13 +475,21 @@ bool LoRaMultiHop::sendMessage(MsgType_t type){
         setFieldInBuffer(this->forwardedDataBufferLength, info, PAYLOAD_FORWARDED_DATA_LEN_OFFSET, MESG_PAYLOAD_FORWARDED_DATA_LEN_SIZE);
 
         uint8_t * pPtr = (this->txBuf + HEADER_PAYLOAD_OFFSET);
-        memcpy(pPtr, info, this->ownDataBufferLength);
+        memcpy(pPtr, info, PAYLOAD_DATA_OFFSET);
+
+        ownDataLength = 0;
+
+#pragma region DEBUG
+#ifdef DEBUG
+        Serial.println(F("No room for own data."));
+#endif
+#pragma endregion
     }
     
     // copy aggregated data to tx buffer
     if(this->forwardedDataBufferLength > 0){
         // copy payload to tx Buffer
-        uint8_t * pPtr = (this->txBuf + HEADER_PAYLOAD_OFFSET + this->ownDataBufferLength);
+        uint8_t * pPtr = (this->txBuf + HEADER_PAYLOAD_OFFSET + ownDataLength);
         memcpy(pPtr, this->forwardedDataBuffer, this->forwardedDataBufferLength);
     }
 
@@ -920,6 +931,13 @@ bool LoRaMultiHop::prepareRxDataForAggregation(uint8_t * payload, uint8_t len){
         forwardNow = true;
         this->sendOwnData = true;
     }
+    // Otherwise there is no need for panic
+    else{
+        sendWithOverflow = false;
+        forwardNow = false;
+        this->sendOwnData = true;
+    }
+
     if(sendWithOverflow){
         memcpy((this->forwardedDataBufferOverflow), payload, len);
         this->forwardedDataBufferOverflowLength = len;
@@ -938,6 +956,7 @@ bool LoRaMultiHop::prepareRxDataForAggregation(uint8_t * payload, uint8_t len){
         memcpy((this->forwardedDataBuffer + this->forwardedDataBufferLength), payload, len);
         this->forwardedDataBufferLength += len;
     }
+
     if(forwardNow){
         this->presetSent = false;
         this->presetTime = DramcoUno.millisWithOffset();
@@ -986,6 +1005,7 @@ bool LoRaMultiHop::sendAggregatedMessage( void ){
     // reset counters
     this->ownDataBufferLength = 0;
     this->forwardedDataBufferLength = 0;
+    this->sendOwnData = true;
 
     return rv;
 }
