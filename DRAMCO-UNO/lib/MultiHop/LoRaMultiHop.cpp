@@ -900,7 +900,14 @@ bool LoRaMultiHop::prepareRxDataForAggregation(uint8_t * payload, uint8_t len){
     if(this->forwardedDataBufferLength == 0 && len  >= PAYLOAD_TX_THRESHOLD_START - PAYLOAD_TX_THRESHOLD_MINUS_PER_HOP*this->bestRoute->hopsToGateway){
         sendWithOverflow = false;
         forwardNow = true;
-    } 
+        this->sendOwnData = false;
+    }
+    // Can we manage to squeeze in our own payload? 
+    else if(this->forwardedDataBufferLength == 0 && len + this->ownDataBufferLength  >= PAYLOAD_TX_THRESHOLD_START - PAYLOAD_TX_THRESHOLD_MINUS_PER_HOP*this->bestRoute->hopsToGateway){
+        sendWithOverflow = false;
+        forwardNow = true;
+        this->sendOwnData = true;
+    }
     // First check without own data, if this is too big, send the forwarded without own data
     else if(this->forwardedDataBufferLength + len >= PAYLOAD_TX_THRESHOLD_START - PAYLOAD_TX_THRESHOLD_MINUS_PER_HOP*this->bestRoute->hopsToGateway ){ 
         sendWithOverflow = true;
