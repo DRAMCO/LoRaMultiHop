@@ -895,14 +895,22 @@ bool LoRaMultiHop::prepareRxDataForAggregation(uint8_t * payload, uint8_t len){
     // and schedule pending packet NOW.
 
     bool sendWithOverflow = false;
+    bool forwardNow = false;
+    // If forwarded buffer is empty, but a large package is coming in, forward it NOW
+    if(this->forwardedDataBufferLength == 0 && len  >= PAYLOAD_TX_THRESHOLD_START - PAYLOAD_TX_THRESHOLD_MINUS_PER_HOP*this->bestRoute->hopsToGateway){
+        sendWithOverflow = false;
+        forwardNow = true;
+    } 
     // First check without own data, if this is too big, send the forwarded without own data
-    if(this->forwardedDataBufferLength + len >= PAYLOAD_TX_THRESHOLD_START - PAYLOAD_TX_THRESHOLD_MINUS_PER_HOP*this->bestRoute->hopsToGateway ){ 
+    else if(this->forwardedDataBufferLength + len >= PAYLOAD_TX_THRESHOLD_START - PAYLOAD_TX_THRESHOLD_MINUS_PER_HOP*this->bestRoute->hopsToGateway ){ 
         sendWithOverflow = true;
+        forwardNow = true;
         this->sendOwnData = false;
     }
     // Can we manage to add our own data? if this gets too big, send the own data and forwarded data
     else if( this->ownDataBufferLength + this->forwardedDataBufferLength + len >= PAYLOAD_TX_THRESHOLD_START - PAYLOAD_TX_THRESHOLD_MINUS_PER_HOP*this->bestRoute->hopsToGateway ){
         sendWithOverflow = true;
+        forwardNow = true;
         this->sendOwnData = true;
     }
     if(sendWithOverflow){
@@ -918,14 +926,16 @@ bool LoRaMultiHop::prepareRxDataForAggregation(uint8_t * payload, uint8_t len){
     printBuffer(this->forwardedDataBuffer, this->forwardedDataBufferLength);
 #endif
 #pragma endregion
-        this->presetSent = false;
-        this->presetTime = DramcoUno.millisWithOffset();
-    }
-    else{
+        
+    }else{
         memcpy((this->forwardedDataBuffer + this->forwardedDataBufferLength), payload, len);
         this->forwardedDataBufferLength += len;
-
-        if(this->presetSent){ // start new window
+    }
+    if(forwardNow){
+        this->presetSent = false;
+        this->presetTime = DramcoUno.millisWithOffset();
+    }else{
+        if(this->presetSent){ // If no window has started yet, start new window, otherwise keep the old value
             this->presetSent = false;
             this->presetTime = DramcoUno.millisWithOffset() + random(max(0, (int32_t) this->latency - AGGREGATION_TIMER_RANDOM), this->latency + AGGREGATION_TIMER_RANDOM);
         }

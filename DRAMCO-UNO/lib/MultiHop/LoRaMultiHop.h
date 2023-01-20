@@ -50,7 +50,7 @@
 #define AGGREGATION_BUFFER_SIZE             (OWN_DATA_BUFFER_SIZE + FORWARDED_BUFFER_SIZE)    // Max preset buffer size 
 #define TX_BUFFER_SIZE                      (HEADER_SIZE + AGGREGATION_BUFFER_SIZE + ROUTING_EXTRA_SIZE + 2)     // Max preset buffer size 
 
-#define PAYLOAD_TX_THRESHOLD_START          108
+#define PAYLOAD_TX_THRESHOLD_START          79 // Good for 8 packages and 7 byte header
 #define PAYLOAD_TX_THRESHOLD_MINUS_PER_HOP  3
 
 #define PIN_ENABLE_3V3                      8
