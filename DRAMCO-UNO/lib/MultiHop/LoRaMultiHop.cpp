@@ -396,8 +396,7 @@ bool LoRaMultiHop::sendMessage(uint8_t * payload, uint8_t len, MsgType_t type){
 }
 
 bool LoRaMultiHop::sendMessage(MsgType_t type){
-    uint8_t len = HEADER_SIZE + this->ownDataBufferLength + this->forwardedDataBufferLength;
-
+    
 #pragma region DEBUG
 #ifdef DEBUG
     if(len > TX_BUFFER_SIZE){
@@ -465,6 +464,7 @@ bool LoRaMultiHop::sendMessage(MsgType_t type){
         uint8_t * pPtr = (this->txBuf + HEADER_PAYLOAD_OFFSET);
         memcpy(pPtr, this->ownDataBuffer, this->ownDataBufferLength);
         ownDataLength = this->ownDataBufferLength;
+        
     }
     
     // If we can't send our own data (probably because message is overflowing), just add the payload header values
@@ -477,7 +477,7 @@ bool LoRaMultiHop::sendMessage(MsgType_t type){
         uint8_t * pPtr = (this->txBuf + HEADER_PAYLOAD_OFFSET);
         memcpy(pPtr, info, PAYLOAD_DATA_OFFSET);
 
-        ownDataLength = 0;
+        ownDataLength = PAYLOAD_DATA_OFFSET;
 
 #pragma region DEBUG
 #ifdef DEBUG
@@ -486,6 +486,8 @@ bool LoRaMultiHop::sendMessage(MsgType_t type){
 #pragma endregion
     }
     
+    uint8_t len = HEADER_SIZE + ownDataLength + this->forwardedDataBufferLength;
+
     // copy aggregated data to tx buffer
     if(this->forwardedDataBufferLength > 0){
         // copy payload to tx Buffer
@@ -919,17 +921,13 @@ bool LoRaMultiHop::prepareRxDataForAggregation(uint8_t * payload, uint8_t len){
         forwardNow = true;
         this->sendOwnData = true;
     }
-    // First check without own data, if this is too big, send the forwarded without own data
+    // Check if we need to use overflow buffer
     else if(this->forwardedDataBufferLength + len >= PAYLOAD_TX_THRESHOLD_START - PAYLOAD_TX_THRESHOLD_MINUS_PER_HOP*this->bestRoute->hopsToGateway ){ 
         sendWithOverflow = true;
         forwardNow = true;
-        this->sendOwnData = false;
-    }
-    // Can we manage to add our own data? if this gets too big, send the own data and forwarded data
-    else if( this->ownDataBufferLength + this->forwardedDataBufferLength + len >= PAYLOAD_TX_THRESHOLD_START - PAYLOAD_TX_THRESHOLD_MINUS_PER_HOP*this->bestRoute->hopsToGateway ){
-        sendWithOverflow = true;
-        forwardNow = true;
-        this->sendOwnData = true;
+        // Can we squeeze in our own data?
+        if(this->forwardedDataBufferLength + this->ownDataBufferLength >= PAYLOAD_TX_THRESHOLD_START - PAYLOAD_TX_THRESHOLD_MINUS_PER_HOP*this->bestRoute->hopsToGateway )
+            this->sendOwnData = false;
     }
     // Otherwise there is no need for panic
     else{
