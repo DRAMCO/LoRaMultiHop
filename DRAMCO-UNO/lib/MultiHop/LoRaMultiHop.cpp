@@ -396,15 +396,7 @@ bool LoRaMultiHop::sendMessage(uint8_t * payload, uint8_t len, MsgType_t type){
 }
 
 bool LoRaMultiHop::sendMessage(MsgType_t type){
-    
-#pragma region DEBUG
-#ifdef DEBUG
-    if(len > TX_BUFFER_SIZE){
-        Serial.println(F("Payload is too long."));
-    }
-#endif
 
-#pragma endregion
 
     // Generate message uid
     MsgInfo_t mInfo;
@@ -487,6 +479,14 @@ bool LoRaMultiHop::sendMessage(MsgType_t type){
     }
     
     uint8_t len = HEADER_SIZE + ownDataLength + this->forwardedDataBufferLength;
+    
+#pragma region DEBUG
+#ifdef DEBUG
+    if(len > TX_BUFFER_SIZE){
+        Serial.println(F("Payload is too long."));
+    }
+#endif
+#pragma endregion
 
     // copy aggregated data to tx buffer
     if(this->forwardedDataBufferLength > 0){
