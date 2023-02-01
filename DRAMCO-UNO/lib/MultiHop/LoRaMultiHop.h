@@ -35,9 +35,9 @@
 #endif
 #define AGGREGATION_TIMER_MIN               0 // In ms
 #define AGGREGATION_TIMER_MAX               MEASURE_INTERVAL/2 // In ms
-#define AGGREGATION_TIMER_RANDOM            90000 // Random window around PRESET_MAX_LATENCY
-#define AGGREGATION_TIMER_UPSTEP            60000
-#define AGGREGATION_TIMER_DOWNSTEP          15000
+#define AGGREGATION_TIMER_RANDOM            90000 //90000 // Random window around PRESET_MAX_LATENCY
+#define AGGREGATION_TIMER_UPSTEP            60000 //60000
+#define AGGREGATION_TIMER_DOWNSTEP          15000 //15000
 
 #define COLLISION_DELAY                     2*PREAMBLE_DURATION       // Backoff if CAD detected when wanting to send
 #define COLLISION_DELAY_RANDOM              PREAMBLE_DURATION

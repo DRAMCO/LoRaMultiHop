@@ -8,114 +8,184 @@
 #endif
 
 #if NODE_UID == 0x01
-    // #define FIXED_VIA 
-    // #define HARDWARE_VERSION
+    #ifdef USE_FIXED_ROUTE
+        // #define FIXED_VIA
+    #endif 
+    #define HARDWARE_VERSION 1
 #elif NODE_UID == 0x02
-    // #define FIXED_VIA 
-    // #define HARDWARE_VERSION
+    #ifdef USE_FIXED_ROUTE
+        // #define FIXED_VIA 
+    #endif 
+    #define HARDWARE_VERSION 1
 #elif NODE_UID == 0x03
-    #define FIXED_VIA 0x00
-    #define FIXED_HOPS 0
+    #ifdef USE_FIXED_ROUTE
+        #define FIXED_VIA 0x00
+        #define FIXED_HOPS 0
+    #endif
     #define HARDWARE_VERSION 2
 #elif NODE_UID == 0x04
-    #define FIXED_VIA 0x20
-    #define FIXED_HOPS 1
+    #ifdef USE_FIXED_ROUTE
+        #define FIXED_VIA 0x20
+        #define FIXED_HOPS 1
+    #endif
     #define HARDWARE_VERSION 2
 #elif NODE_UID == 0x05
-    #define FIXED_VIA 0x20
-    #define FIXED_HOPS 1
+    #ifdef USE_FIXED_ROUTE
+        #define FIXED_VIA 0x20
+        #define FIXED_HOPS 1
+    #endif
     #define HARDWARE_VERSION 1
 #elif NODE_UID == 0x06
-    #define FIXED_VIA 0x20
-    #define FIXED_HOPS 1
+    #ifdef USE_FIXED_ROUTE
+        #define FIXED_VIA 0x20
+        #define FIXED_HOPS 1
+    #endif
     #define HARDWARE_VERSION 2
 #elif NODE_UID == 0x07
-    #define FIXED_VIA 0x04
-    #define FIXED_HOPS 2
+    #ifdef USE_FIXED_ROUTE
+        #define FIXED_VIA 0x04
+        #define FIXED_HOPS 2
+    #endif
     #define HARDWARE_VERSION 2
 #elif NODE_UID == 0x08
-    #define FIXED_VIA 0x04
-    #define FIXED_HOPS 2
+    #ifdef USE_FIXED_ROUTE
+        #define FIXED_VIA 0x04
+        #define FIXED_HOPS 2
+    #endif
     #define HARDWARE_VERSION 1
 #elif NODE_UID == 0x09
-    #define FIXED_VIA 0x04
-    #define FIXED_HOPS 2
+    #ifdef USE_FIXED_ROUTE
+        #define FIXED_VIA 0x04
+        #define FIXED_HOPS 2
+    #endif
     #define HARDWARE_VERSION 2
 #elif NODE_UID == 0x10
-    #define FIXED_VIA 0x04
-    #define FIXED_HOPS 2
+    #ifdef USE_FIXED_ROUTE
+        #define FIXED_VIA 0x04
+        #define FIXED_HOPS 2
+    #endif
     #define HARDWARE_VERSION 2
 #elif NODE_UID == 0x11
-    #define FIXED_VIA 0x06
-    #define FIXED_HOPS 2
+    #ifdef USE_FIXED_ROUTE
+        #define FIXED_VIA 0x06
+        #define FIXED_HOPS 2
+    #endif
     #define HARDWARE_VERSION 1
 #elif NODE_UID == 0x12
-    // #define FIXED_VIA 0x20
+    #ifdef USE_FIXED_ROUTE
+        // #define FIXED_VIA 0x20
+    #endif
     // #define HARDWARE_VERSION 1
 #elif NODE_UID == 0x13
-    #define FIXED_VIA 0x09
-    #define FIXED_HOPS 3
+    #ifdef USE_FIXED_ROUTE
+        #define FIXED_VIA 0x09
+        #define FIXED_HOPS 3
+    #endif
     #define HARDWARE_VERSION 1
 #elif NODE_UID == 0x14
-    #define FIXED_VIA 0x09
-    #define FIXED_HOPS 3
+    #ifdef USE_FIXED_ROUTE
+        #define FIXED_VIA 0x09
+        #define FIXED_HOPS 3
+    #endif
     #define HARDWARE_VERSION 1
 #elif NODE_UID == 0x15
-    #define FIXED_VIA 0x13
-    #define FIXED_HOPS 4
+    #ifdef USE_FIXED_ROUTE
+        #define FIXED_VIA 0x13
+        #define FIXED_HOPS 4
+    #endif
     #define HARDWARE_VERSION 1
 #elif NODE_UID == 0x16
-    // #define FIXED_VIA 0x20
+    #ifdef USE_FIXED_ROUTE
+        // #define FIXED_VIA 0x20
+    #endif
     // #define HARDWARE_VERSION 1
 #elif NODE_UID == 0x17
-    #define FIXED_VIA 0x22
-    #define FIXED_HOPS 1
+    #ifdef USE_FIXED_ROUTE
+        #define FIXED_VIA 0x22
+        #define FIXED_HOPS 1
+    #endif
     #define HARDWARE_VERSION 2
 #elif NODE_UID == 0x18
-    #define FIXED_VIA 0x09
-    #define FIXED_HOPS 3
+    #ifdef USE_FIXED_ROUTE
+        #define FIXED_VIA 0x09
+        #define FIXED_HOPS 3
+    #endif
     #define HARDWARE_VERSION 2
 #elif NODE_UID == 0x19
-    // #define FIXED_VIA 0x20
-    // #define HARDWARE_VERSION 2
+    #ifdef USE_FIXED_ROUTE
+        // #define FIXED_VIA 0x20
+    #endif
+    #define HARDWARE_VERSION 2
 #elif NODE_UID == 0x20
-    #define FIXED_VIA 0x00
-    #define FIXED_HOPS 0
+    #ifdef USE_FIXED_ROUTE
+        #define FIXED_VIA 0x00
+        #define FIXED_HOPS 0
+    #endif
     #define HARDWARE_VERSION 2
 #elif NODE_UID == 0x21
-    #define FIXED_VIA 0x00
-    #define FIXED_HOPS 0
+    #ifdef USE_FIXED_ROUTE
+        #define FIXED_VIA 0x00
+        #define FIXED_HOPS 0
+    #endif
     #define HARDWARE_VERSION 2
 #elif NODE_UID == 0x22
-    #define FIXED_VIA 0x05
-    #define FIXED_HOPS 2
+    #ifdef USE_FIXED_ROUTE
+        #define FIXED_VIA 0x05
+        #define FIXED_HOPS 2
+    #endif
     #define HARDWARE_VERSION 2
 #elif NODE_UID == 0x23
-    // #define FIXED_VIA 0x20
-    // #define HARDWARE_VERSION 1
+    #ifdef USE_FIXED_ROUTE
+        // #define FIXED_VIA 0x20
+    #endif
+    #define HARDWARE_VERSION 1
 #elif NODE_UID == 0x24
-    // #define FIXED_VIA 0x20
+    #ifdef USE_FIXED_ROUTE
+        // #define FIXED_VIA 0x20
+    #endif
     // #define HARDWARE_VERSION 1
 #elif NODE_UID == 0x25
-    // #define FIXED_VIA 0x20
-    // #define HARDWARE_VERSION 1
+    #ifdef USE_FIXED_ROUTE
+        // #define FIXED_VIA 0x20
+    #endif
+    #define HARDWARE_VERSION 1
 #elif NODE_UID == 0x26
-    #define FIXED_VIA 0x13
-    #define FIXED_HOPS 4
+    #ifdef USE_FIXED_ROUTE
+        #define FIXED_VIA 0x13
+        #define FIXED_HOPS 4
+    #endif
     #define HARDWARE_VERSION 1
 #elif NODE_UID == 0x27
-    #define FIXED_VIA 0x26
-    #define FIXED_HOPS 5
+    #ifdef USE_FIXED_ROUTE
+        #define FIXED_VIA 0x26
+        #define FIXED_HOPS 5
+    #endif
     #define HARDWARE_VERSION 1
 #elif NODE_UID == 0x28
-    // #define FIXED_VIA 0x20
-    // #define HARDWARE_VERSION 1
+    #ifdef USE_FIXED_ROUTE
+        // #define FIXED_VIA 0x20
+    #endif
+    #define HARDWARE_VERSION 1
 #elif NODE_UID == 0x29
-    // #define FIXED_VIA 0x20
-    // #define HARDWARE_VERSION 1
+    #ifdef USE_FIXED_ROUTE
+        // #define FIXED_VIA 0x20
+    #endif
+    #define HARDWARE_VERSION 1
 #elif NODE_UID == 0x30
-    // #define FIXED_VIA 0x20
-    // #define HARDWARE_VERSION 1
+    #ifdef USE_FIXED_ROUTE
+        // #define FIXED_VIA 0x20
+    #endif
+    #define HARDWARE_VERSION 2
+#elif NODE_UID == 0x31
+    #ifdef USE_FIXED_ROUTE
+        // #define FIXED_VIA 0x20
+    #endif
+    #define HARDWARE_VERSION 2
+#elif NODE_UID == 0x32
+    #ifdef USE_FIXED_ROUTE
+        // #define FIXED_VIA 0x20
+    #endif
+    #define HARDWARE_VERSION 1
 #endif
 
 #endif /*__CONSTANTS_H__*/
