@@ -1,4 +1,7 @@
 # LoRaMultiHop
+
+This repository contains the firmware and hardware files of the LoRaMultiHop protocol.
+The simulator is hosted [here](github.com/DRAMCO/LoRa-multihop-simulator).
  
 ## CAD methodology
 
